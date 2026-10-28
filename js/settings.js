@@ -1,6 +1,8 @@
 // 設定の読み書きと、設定画面の操作
 
-import { ALL_DANS, CPU_LEVELS, DEFAULT_SETTINGS, MODES, ROUND_OPTIONS, STORAGE_KEY } from './config.js';
+import {
+  ALL_DANS, CPU_LEVELS, DEFAULT_SETTINGS, MODES, ROUND_OPTIONS, STORAGE_KEY, TAKE_SAME_MIN_DANS,
+} from './config.js';
 
 /** 保存値を検証し、おかしな値は既定値に戻す */
 export function normalizeSettings(raw) {
@@ -11,6 +13,14 @@ export function normalizeSettings(raw) {
   const dans = Array.isArray(s.dans) ? s.dans.filter((d) => ALL_DANS.includes(d)) : [];
   s.dans = dans.length > 0 ? [...new Set(dans)].sort((a, b) => a - b) : [...DEFAULT_SETTINGS.dans];
   return s;
+}
+
+/** 今の設定では遊べない時の理由（遊べる時は null） */
+export function getSettingsProblem(settings) {
+  if (settings.mode === 'take-same' && settings.dans.length < TAKE_SAME_MIN_DANS) {
+    return 'カードとり 2 は、だんを 2つ いじょう えらんでね（こたえが おなじ べつの しきを つくるため）';
+  }
+  return null;
 }
 
 export function loadSettings(storage) {
@@ -50,6 +60,7 @@ export function mountSettingsForm(root, initial, onChange) {
   }
 
   function render() {
+    root.querySelector('#setup-problem').textContent = getSettingsProblem(settings) ?? '';
     const modeBox = root.querySelector('#opt-mode');
     modeBox.replaceChildren(
       ...Object.entries(MODES).map(([key, mode]) =>

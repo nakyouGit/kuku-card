@@ -1,7 +1,7 @@
 // 画面の切り替えと、モードの起動
 
 import { createGameView, renderResult } from './ui.js';
-import { loadSettings, saveSettings, mountSettingsForm } from './settings.js';
+import { loadSettings, saveSettings, mountSettingsForm, getSettingsProblem } from './settings.js';
 import { createTakeMode } from './mode-take.js';
 import { createCompareMode } from './mode-compare.js';
 import { MODES, STOP_API_URL, STOP_POLL_MS, STOP_REQUEST_TIMEOUT_MS, START_CHECK_WAIT_MS } from './config.js';
@@ -68,6 +68,10 @@ const timers = { setTimeout: (fn, ms) => window.setTimeout(fn, ms), clearTimeout
 let current = null;
 
 async function startGame() {
+  if (getSettingsProblem(form.get())) {
+    showScreen('setup'); // 理由は設定の画面に出ている
+    return;
+  }
   startButton.disabled = true;
   // 止まっていれば「おやすみ」になる。回線が遅い時は待たずに、分かっている状態で進める
   // （確認は裏で続き、遅れて止まったと分かれば、その時点でゲームを止める）

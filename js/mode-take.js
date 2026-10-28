@@ -15,10 +15,6 @@ import { planCpuMove } from './cpu.js';
 import { createRace } from './race.js';
 import { createScheduler } from './scheduler.js';
 
-const TARGET_PICKERS = {
-  number: pickNumberTarget,
-  same: pickSameTarget,
-};
 
 /**
  * @param {object} deps
@@ -31,7 +27,7 @@ const TARGET_PICKERS = {
  */
 export function createTakeMode({ variant, settings, view, rng, timers, onFinish }) {
   const level = CPU_LEVELS[settings.level];
-  const pickTarget = TARGET_PICKERS[variant];
+  const pickTarget = variant === 'same' ? (f, r) => pickSameTarget(f, r, settings.dans) : pickNumberTarget;
   const gameCards = createCards(settings.dans);
   const pile = createDrawPile(gameCards, rng);
   const scheduler = createScheduler(timers);
@@ -114,7 +110,7 @@ export function createTakeMode({ variant, settings, view, rng, timers, onFinish 
   }
 
   function describeAnswers(t) {
-    const exprs = expressionsFor(t.product)
+    const exprs = expressionsFor(t.product, settings.dans)
       .filter((e) => t.kind !== 'expr' || e.id !== `${t.a}x${t.b}`)
       .map((e) => `${e.a}×${e.b}`);
     return `${exprs.join('、')}（こたえ ${t.product}）`;

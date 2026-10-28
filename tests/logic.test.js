@@ -7,7 +7,7 @@ import {
 } from '../js/deck.js';
 import { planCpuMove } from '../js/cpu.js';
 import { createRace } from '../js/race.js';
-import { normalizeSettings } from '../js/settings.js';
+import { normalizeSettings, getSettingsProblem } from '../js/settings.js';
 import { createTakeMode } from '../js/mode-take.js';
 import { createCompareMode } from '../js/mode-compare.js';
 import { CPU_LEVELS, FIELD_SIZE } from '../js/config.js';
@@ -73,10 +73,15 @@ test('山札は場にあるカードを引かず、尽きても補われる', ()
 });
 
 test('答えが同じ式の一覧', () => {
-  assert.deepEqual(expressionsFor(12).map((c) => c.id).sort(), ['2x6', '3x4', '4x3']);
-  assert.deepEqual(expressionsFor(25).map((c) => c.id), ['5x5']);
-  assert.deepEqual(expressionsFor(11), []);
-  assert.deepEqual(expressionsFor(14).map((c) => c.id), ['2x7'], '7×2 は まだ 出さない');
+  const DANS_2_5 = [2, 3, 4, 5];
+  const DANS_1_9 = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  assert.deepEqual(expressionsFor(12, DANS_2_5).map((c) => c.id).sort(), ['2x6', '3x4', '4x3']);
+  assert.deepEqual(expressionsFor(12, DANS_1_9).map((c) => c.id).sort(), ['2x6', '3x4', '4x3', '6x2']);
+  assert.deepEqual(expressionsFor(25, DANS_2_5).map((c) => c.id), ['5x5']);
+  assert.deepEqual(expressionsFor(11, DANS_1_9), []);
+  assert.deepEqual(expressionsFor(14, DANS_2_5).map((c) => c.id), ['2x7'], '選んでいない7の段は出さない');
+  assert.deepEqual(expressionsFor(14, DANS_1_9).map((c) => c.id).sort(), ['2x7', '7x2']);
+  assert.deepEqual(expressionsFor(9, [1]).map((c) => c.id), ['1x9']);
 });
 
 test('カードとり1の問題は必ず場に正解がある', () => {
@@ -91,22 +96,22 @@ test('カードとり1の問題は必ず場に正解がある', () => {
 
 test('カードとり2の問題は場に無い式で、場に正解がある', () => {
   const rng = seeded(11);
-  for (const dans of [[2], [3], [5], [2, 3, 4, 5]]) {
+  for (const dans of [[2], [3], [5], [2, 3, 4, 5], [1, 2], [6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9]]) {
     const pile = createDrawPile(createCards(dans), rng);
     for (let i = 0; i < 100; i += 1) {
       const field = refillField([], pile, FIELD_SIZE);
-      const t = pickSameTarget(field, rng);
+      const t = pickSameTarget(field, rng, dans);
       if (!t) continue;
       assert.ok(!field.some((c) => c.a === t.a && c.b === t.b), '同じ式は場に無い');
       assert.ok(field.some((c) => isMatch(t, c)), '正解が場にある');
-      assert.ok(t.a >= 2 && t.a <= 5, '出す式は2〜5の段');
+      assert.ok(dans.includes(t.a), '出す式は選んだ段だけ');
     }
   }
 });
 
 test('相方の無い式だけの場では、カードとり2の問題を作らない', () => {
   const field = [makeCard(1, 1), makeCard(5, 5), makeCard(7, 7)];
-  assert.equal(pickSameTarget(field, seeded(1)), null);
+  assert.equal(pickSameTarget(field, seeded(1), [1, 5, 7]), null);
 });
 
 test('大きさくらべの判定', () => {
@@ -170,7 +175,10 @@ test('設定の検証', () => {
   assert.equal(s.level, 'normal');
   assert.equal(s.rounds, 10);
   assert.deepEqual(normalizeSettings({ dans: [] }).dans, [2, 3, 4, 5]);
-  assert.deepEqual(normalizeSettings({ dans: [1, 2, 9] }).dans, [2], '2〜5の段の外は落とす');
+  assert.deepEqual(normalizeSettings({ dans: ['3', 4] }).dans, [4], '文字の数は落とす');
+  assert.deepEqual(normalizeSettings({ dans: [1, 2, 9] }).dans, [1, 2, 9], '1〜9の段は選べる');
+  assert.deepEqual(normalizeSettings({ dans: [0, 10, 5, 5] }).dans, [5], '1〜9の外は落とす');
+  assert.deepEqual(normalizeSettings(null).dans, [2, 3, 4, 5], '最初は2〜5の段');
 });
 
 for (const variant of ['number', 'same']) {
@@ -273,11 +281,11 @@ test('カードとり2: 場から作れない時は1枚入れ替えて必ず作�
   const pile = createDrawPile(gameCards, rng);
   let field = refillField([], pile, FIELD_SIZE);
   for (let i = 0; i < 200; i += 1) {
-    let t = pickSameTarget(field, rng);
+    let t = pickSameTarget(field, rng, [2, 3, 4, 5]);
     if (!t) {
       const forced = forceSameTarget(field, gameCards, rng);
       assert.ok(forced, '入れ替えで作れる');
-      assert.equal(forced.field.length, field.length);
+      assert.ok(forced.field.length >= field.length - 1 && forced.field.length <= field.length);
       field = forced.field;
       t = forced.target;
     }
@@ -288,3 +296,67 @@ test('カードとり2: 場から作れない時は1枚入れ替えて必ず作�
     field = refillField(field.filter((c) => c !== hit), pile, FIELD_SIZE);
   }
 });
+
+test('カードとり2は、段が1つだけだと遊べない。ほかは遊べる', () => {
+  assert.match(getSettingsProblem({ mode: 'take-same', dans: [3] }), /2つ/);
+  assert.equal(getSettingsProblem({ mode: 'take-same', dans: [3, 4] }), null);
+  assert.equal(getSettingsProblem({ mode: 'take-number', dans: [3] }), null);
+  assert.equal(getSettingsProblem({ mode: 'compare', dans: [1] }), null);
+});
+
+test('どの2つの段でも、カードとり2の問題が作れる（1〜9の段の全組み合わせ）', () => {
+  const rng = seeded(31);
+  for (let a = 1; a <= 9; a += 1) {
+    for (let b = a + 1; b <= 9; b += 1) {
+      const dans = [a, b];
+      const gameCards = createCards(dans);
+      const pile = createDrawPile(gameCards, rng);
+      let field = refillField([], pile, FIELD_SIZE);
+      for (let i = 0; i < 30; i += 1) {
+        let t = pickSameTarget(field, rng, dans);
+        if (!t) {
+          const forced = forceSameTarget(field, gameCards, rng);
+          assert.ok(forced, `${a}と${b}の段で問題が作れない`);
+          field = forced.field;
+          t = forced.target;
+        }
+        assert.ok(dans.includes(t.a), '式は選んだ段だけ');
+        const hit = field.find((c) => isMatch(t, c));
+        assert.ok(hit, '場に正解がある');
+        assert.equal(new Set(field.map((c) => c.id)).size, field.length);
+        field = refillField(field.filter((c) => c !== hit), pile, FIELD_SIZE);
+      }
+    }
+  }
+});
+
+for (const dans of [[1, 2], [6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9], [9, 8]]) {
+  test(`カードとり2を最後まで通す（${dans.join('・')}の段）`, () => {
+    const timers = fakeTimers();
+    const { view, calls } = fakeView();
+    let summary = null;
+    let lastField = null;
+    let onTap = null;
+    let lastTarget = null;
+    const proxyView = new Proxy(view, {
+      get(target, name) {
+        if (name === 'renderField') return (field, tap) => { lastField = field; onTap = tap; calls.push(['renderField']); };
+        if (name === 'showTarget') return (t) => { lastTarget = t; calls.push(['showTarget', t]); };
+        return target[name];
+      },
+    });
+    createTakeMode({
+      variant: 'same', settings: { dans, level: 'weak', rounds: 15 },
+      view: proxyView, rng: seeded(77), timers, onFinish: (s) => { summary = s; },
+    }).start();
+    for (let i = 0; i < 15; i += 1) {
+      timers.advance(900);
+      assert.ok(dans.includes(lastTarget.a), '問題の式は選んだ段だけ');
+      assert.ok(lastField.every((c) => dans.includes(c.a)), '場のカードも選んだ段だけ');
+      onTap(lastField.find((c) => c.product === lastTarget.product).id);
+      timers.advance(1400);
+    }
+    assert.ok(summary);
+    assert.equal(summary.score.player, 15);
+  });
+}

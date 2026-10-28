@@ -1,6 +1,6 @@
 // カードの組と、問題の選び方（画面に依存しない純粋な処理）
 
-import { MULTIPLIER_MIN, MULTIPLIER_MAX, ALL_DANS } from './config.js';
+import { MULTIPLIER_MIN, MULTIPLIER_MAX } from './config.js';
 
 /** @typedef {{id: string, a: number, b: number, product: number}} Card */
 
@@ -67,8 +67,8 @@ export function refillField(field, pile, size) {
   return next;
 }
 
-/** 答えが product になる a×b をすべて返す（a は扱う段、b は 1〜9） */
-export function expressionsFor(product, dans = ALL_DANS) {
+/** 答えが product になる a×b をすべて返す（a は選んだ段 dans、b は 1〜9） */
+export function expressionsFor(product, dans) {
   const list = [];
   for (const a of dans) {
     for (let b = MULTIPLIER_MIN; b <= MULTIPLIER_MAX; b += 1) {
@@ -88,12 +88,13 @@ export function pickNumberTarget(field, rng) {
 /**
  * カードとり2: 場のカードと答えが同じで、場に無い別の式を選ぶ。
  * 1×1・5×5 のように相方の式が無いものは選ばない。
+ * @param {number[]} dans 選んだ段（相方の式も、この段の式だけにする）
  */
-export function pickSameTarget(field, rng) {
+export function pickSameTarget(field, rng, dans) {
   const fieldIds = new Set(field.map((c) => c.id));
   const candidates = [];
   for (const card of field) {
-    for (const expr of expressionsFor(card.product)) {
+    for (const expr of expressionsFor(card.product, dans)) {
       if (!fieldIds.has(expr.id)) candidates.push(expr);
     }
   }
@@ -104,41 +105,40 @@ export function pickSameTarget(field, rng) {
 
 /**
  * カードとり2で場から問題が作れない時（相方がみな場にそろっている等）、
- * 場のカードを1枚入れ替えて問題が作れる形にする。
+ * 場を少しだけ作り変えて、問題が作れる形にする。
+ *  - 問題の式（expr）が場にあれば、場から外す（問題のカードを場に残さない）
+ *  - 答えが同じ別の式（partner）が場に無ければ、場に入れる（1枚入れ替える）
+ * 選んだ段が2つ以上あれば、必ず作れる（a×b と b×a は答えが同じ）。
  * @param {Card[]} field 今の場
- * @param {Card[]} gameCards このゲームで使うカード（選んだ段）
+ * @param {Card[]} gameCards このゲームで使うカード（選んだ段のすべて）
  * @returns {{field: Card[], target: object} | null}
  */
 export function forceSameTarget(field, gameCards, rng) {
   if (field.length === 0) return null;
-  const fieldIds = new Set(field.map((c) => c.id));
   const options = [];
-  for (const expr of allExpressions()) {
-    if (fieldIds.has(expr.id)) continue;
+  for (const expr of gameCards) {
     for (const partner of gameCards) {
-      if (partner.product === expr.product && partner.id !== expr.id && !fieldIds.has(partner.id)) {
-        options.push({ expr, partner });
-      }
+      if (partner.product === expr.product && partner.id !== expr.id) options.push({ expr, partner });
     }
   }
   const pick = pickRandom(options, rng);
   if (!pick) return null;
-  const replaceIndex = Math.floor(rng() * field.length);
-  const nextField = field.map((card, i) => (i === replaceIndex ? pick.partner : card));
-  const { expr } = pick;
+  const { expr, partner } = pick;
+
+  let nextField = field.filter((card) => card.id !== expr.id);
+  const removedExpr = nextField.length < field.length;
+  if (!nextField.some((card) => card.id === partner.id)) {
+    if (removedExpr) {
+      nextField.push(partner);
+    } else {
+      const replaceIndex = Math.floor(rng() * nextField.length);
+      nextField = nextField.map((card, i) => (i === replaceIndex ? partner : card));
+    }
+  }
   return {
     field: nextField,
     target: { kind: 'expr', product: expr.product, a: expr.a, b: expr.b, label: `${expr.a}×${expr.b}` },
   };
-}
-
-/** 扱う段のすべての式 */
-function allExpressions() {
-  const list = [];
-  for (const a of ALL_DANS) {
-    for (let b = MULTIPLIER_MIN; b <= MULTIPLIER_MAX; b += 1) list.push(makeCard(a, b));
-  }
-  return list;
 }
 
 /** その問題の正解カードかどうか（答えが同じなら、どの式でも正解） */

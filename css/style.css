@@ -104,6 +104,8 @@ button {
 .option-sub { font-size: 0.82rem; font-weight: 500; color: var(--ink-soft); line-height: 1.45; }
 .option--dan { padding: 8px 2px; font-size: 0.9rem; }
 
+.setup-problem { min-height: 1.4em; margin: 0 0 8px; color: var(--cpu); font-weight: 700; text-align: center; }
+
 .primary-button, .secondary-button {
   display: block;
   width: 100%;
@@ -400,7 +402,7 @@ button {
 
 @media (max-width: 640px) {
   .options--mode { grid-template-columns: 1fr; }
-  .options--dans { grid-template-columns: repeat(2, 1fr); }
+  .options--dans { grid-template-columns: repeat(3, 1fr); }
   .panel--row { grid-template-columns: 1fr; }
   .board--field { grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px; }
   .board--field .card { min-height: 64px; }
