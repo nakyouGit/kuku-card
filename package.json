@@ -1,0 +1,9 @@
+{
+  "name": "kuku-card",
+  "private": true,
+  "type": "module",
+  "description": "九九のカードゲーム（コンピューター対戦）",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

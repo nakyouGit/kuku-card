@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>くくの カードゲーム</title>
+  <meta name="description" content="九九のカードゲームを、コンピューターと たいせんしよう。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main id="app">
+
+    <!-- 設定 -->
+    <section id="screen-setup" class="screen screen-setup">
+      <header class="title-block">
+        <p class="title-kicker">2ねんせいの さんすう</p>
+        <h1 class="title">くくの カードゲーム</h1>
+        <p class="title-lead">コンピューターと たいせんしよう</p>
+      </header>
+
+      <div class="panel">
+        <h2 class="panel-title">あそびかた</h2>
+        <div id="opt-mode" class="options options--mode"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">つかう だん</h2>
+          <button id="dans-all" type="button" class="link-button">ぜんぶ えらぶ</button>
+        </div>
+        <div id="opt-dans" class="options options--dans"></div>
+      </div>
+
+      <div class="panel panel--row">
+        <div>
+          <h2 class="panel-title">コンピューターの つよさ</h2>
+          <div id="opt-level" class="options options--level"></div>
+        </div>
+        <div>
+          <h2 class="panel-title">もんだいの かず</h2>
+          <div id="opt-rounds" class="options options--rounds"></div>
+        </div>
+      </div>
+
+      <button id="btn-start" type="button" class="primary-button">はじめる</button>
+    </section>
+
+    <!-- ゲーム -->
+    <section id="screen-game" class="screen screen-game" hidden>
+      <header class="scorebar">
+        <div class="scorebox scorebox--player">
+          <span class="scorebox-name">あなた</span>
+          <span id="score-player" class="scorebox-value">0</span>
+        </div>
+        <div class="scorebar-center">
+          <span id="mode-name" class="mode-name"></span>
+          <span id="round" class="round">1 / 10</span>
+        </div>
+        <div class="scorebox scorebox--cpu">
+          <span class="scorebox-name">コンピューター</span>
+          <span id="score-cpu" class="scorebox-value">0</span>
+        </div>
+      </header>
+
+      <div class="stage">
+        <div id="cpu" class="cpu" data-state="idle">
+          <svg class="cpu-face" viewBox="0 0 80 80" aria-hidden="true">
+            <line x1="40" y1="6" x2="40" y2="16" class="cpu-antenna"/>
+            <circle cx="40" cy="6" r="4" class="cpu-bulb"/>
+            <rect x="10" y="16" width="60" height="52" rx="16" class="cpu-head"/>
+            <circle cx="29" cy="40" r="6" class="cpu-eye"/>
+            <circle cx="51" cy="40" r="6" class="cpu-eye"/>
+            <path d="M28 54 Q40 61 52 54" class="cpu-mouth"/>
+          </svg>
+          <p id="cpu-bubble" class="cpu-bubble" aria-live="polite"></p>
+        </div>
+        <div id="target" class="target" aria-live="polite"></div>
+      </div>
+
+      <div id="board" class="board"></div>
+      <p id="message" class="message" aria-live="polite"></p>
+
+      <button id="btn-quit" type="button" class="quit-button">やめる</button>
+    </section>
+
+    <!-- 結果 -->
+    <section id="screen-result" class="screen screen-result" hidden>
+      <h2 id="result-headline" class="result-headline"></h2>
+      <div id="result-scores" class="result-scores"></div>
+      <div id="result-review" class="result-review"></div>
+      <div class="result-actions">
+        <button id="btn-again" type="button" class="primary-button">もう いちど</button>
+        <button id="btn-setup" type="button" class="secondary-button">せっていに もどる</button>
+      </div>
+    </section>
+
+  </main>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
