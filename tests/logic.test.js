@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   createCards, createDrawPile, refillField, expressionsFor,
-  pickNumberTarget, pickSameTarget, isMatch, judgeCompare, makeCard,
+  pickNumberTarget, pickSameTarget, forceSameTarget, isMatch, judgeCompare, makeCard,
 } from '../js/deck.js';
 import { planCpuMove } from '../js/cpu.js';
 import { createRace } from '../js/race.js';
@@ -73,14 +73,15 @@ test('山札は場にあるカードを引かず、尽きても補われる', ()
 });
 
 test('答えが同じ式の一覧', () => {
-  assert.deepEqual(expressionsFor(12).map((c) => c.id).sort(), ['2x6', '3x4', '4x3', '6x2']);
+  assert.deepEqual(expressionsFor(12).map((c) => c.id).sort(), ['2x6', '3x4', '4x3']);
   assert.deepEqual(expressionsFor(25).map((c) => c.id), ['5x5']);
   assert.deepEqual(expressionsFor(11), []);
+  assert.deepEqual(expressionsFor(14).map((c) => c.id), ['2x7'], '7×2 は まだ 出さない');
 });
 
 test('カードとり1の問題は必ず場に正解がある', () => {
   const rng = seeded(7);
-  const pile = createDrawPile(createCards([1, 2, 3, 4, 5, 6, 7, 8, 9]), rng);
+  const pile = createDrawPile(createCards([2, 3, 4, 5]), rng);
   for (let i = 0; i < 200; i += 1) {
     const field = refillField([], pile, FIELD_SIZE);
     const t = pickNumberTarget(field, rng);
@@ -90,7 +91,7 @@ test('カードとり1の問題は必ず場に正解がある', () => {
 
 test('カードとり2の問題は場に無い式で、場に正解がある', () => {
   const rng = seeded(11);
-  for (const dans of [[1], [2], [5], [9], [1, 2, 3, 4, 5, 6, 7, 8, 9]]) {
+  for (const dans of [[2], [3], [5], [2, 3, 4, 5]]) {
     const pile = createDrawPile(createCards(dans), rng);
     for (let i = 0; i < 100; i += 1) {
       const field = refillField([], pile, FIELD_SIZE);
@@ -98,6 +99,7 @@ test('カードとり2の問題は場に無い式で、場に正解がある', (
       if (!t) continue;
       assert.ok(!field.some((c) => c.a === t.a && c.b === t.b), '同じ式は場に無い');
       assert.ok(field.some((c) => isMatch(t, c)), '正解が場にある');
+      assert.ok(t.a >= 2 && t.a <= 5, '出す式は2〜5の段');
     }
   }
 });
@@ -167,7 +169,8 @@ test('設定の検証', () => {
   assert.deepEqual(s.dans, [3]);
   assert.equal(s.level, 'normal');
   assert.equal(s.rounds, 10);
-  assert.deepEqual(normalizeSettings({ dans: [] }).dans.length, 9);
+  assert.deepEqual(normalizeSettings({ dans: [] }).dans, [2, 3, 4, 5]);
+  assert.deepEqual(normalizeSettings({ dans: [1, 2, 9] }).dans, [2], '2〜5の段の外は落とす');
 });
 
 for (const variant of ['number', 'same']) {
@@ -186,7 +189,7 @@ for (const variant of ['number', 'same']) {
       },
     });
     const mode = createTakeMode({
-      variant, settings: { dans: [2, 3, 4, 6], level: 'weak', rounds: 10 },
+      variant, settings: { dans: [2, 3, 4, 5], level: 'weak', rounds: 10 },
       view: proxyView, rng: seeded(21), timers, onFinish: (s) => { summary = s; },
     });
     mode.start();
@@ -210,7 +213,7 @@ test('カードとりで子どもが何もしなければ、コンピュータ�
   const { view } = fakeView();
   let summary = null;
   const mode = createTakeMode({
-    variant: 'number', settings: { dans: [1, 2, 3, 4, 5, 6, 7, 8, 9], level: 'strong', rounds: 5 },
+    variant: 'number', settings: { dans: [2, 3, 4, 5], level: 'strong', rounds: 5 },
     view, rng: seeded(4), timers, onFinish: (s) => { summary = s; },
   });
   mode.start();
@@ -262,4 +265,26 @@ test('途中でやめるとタイマーが残らない', () => {
   assert.equal(timers.pending(), 0);
   timers.advance(60000);
   assert.equal(finished, false);
+});
+
+test('カードとり2: 場から作れない時は1枚入れ替えて必ず作る（2〜5の段・200問）', () => {
+  const rng = seeded(21);
+  const gameCards = createCards([2, 3, 4, 5]);
+  const pile = createDrawPile(gameCards, rng);
+  let field = refillField([], pile, FIELD_SIZE);
+  for (let i = 0; i < 200; i += 1) {
+    let t = pickSameTarget(field, rng);
+    if (!t) {
+      const forced = forceSameTarget(field, gameCards, rng);
+      assert.ok(forced, '入れ替えで作れる');
+      assert.equal(forced.field.length, field.length);
+      field = forced.field;
+      t = forced.target;
+    }
+    assert.ok(!field.some((c) => c.a === t.a && c.b === t.b));
+    const hit = field.find((c) => isMatch(t, c));
+    assert.ok(hit);
+    assert.equal(new Set(field.map((c) => c.id)).size, field.length, '場に同じカードが2枚ない');
+    field = refillField(field.filter((c) => c !== hit), pile, FIELD_SIZE);
+  }
 });

@@ -7,6 +7,7 @@ import {
   refillField,
   pickNumberTarget,
   pickSameTarget,
+  forceSameTarget,
   isMatch,
   expressionsFor,
 } from './deck.js';
@@ -31,7 +32,8 @@ const TARGET_PICKERS = {
 export function createTakeMode({ variant, settings, view, rng, timers, onFinish }) {
   const level = CPU_LEVELS[settings.level];
   const pickTarget = TARGET_PICKERS[variant];
-  const pile = createDrawPile(createCards(settings.dans), rng);
+  const gameCards = createCards(settings.dans);
+  const pile = createDrawPile(gameCards, rng);
   const scheduler = createScheduler(timers);
 
   const score = { player: 0, cpu: 0 };
@@ -44,7 +46,7 @@ export function createTakeMode({ variant, settings, view, rng, timers, onFinish 
 
   function nextRound() {
     if (stopped) return;
-    target = round < settings.rounds ? pickTarget(field, rng) : null;
+    target = round < settings.rounds ? chooseTarget() : null;
     if (!target) {
       finish();
       return;
@@ -54,6 +56,16 @@ export function createTakeMode({ variant, settings, view, rng, timers, onFinish 
     view.renderField(field, handleTap);
     view.showReady();
     scheduler.later(startRace, TIMING.readyMs);
+  }
+
+  /** 問題を選ぶ。カードとり2で作れない時は、場を1枚入れ替えて作る */
+  function chooseTarget() {
+    const picked = pickTarget(field, rng);
+    if (picked || variant !== 'same') return picked;
+    const forced = forceSameTarget(field, gameCards, rng);
+    if (!forced) return null;
+    field = forced.field;
+    return forced.target;
   }
 
   function startRace() {

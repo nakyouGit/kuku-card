@@ -1,6 +1,6 @@
 // カードの組と、問題の選び方（画面に依存しない純粋な処理）
 
-import { MULTIPLIER_MIN, MULTIPLIER_MAX } from './config.js';
+import { MULTIPLIER_MIN, MULTIPLIER_MAX, ALL_DANS } from './config.js';
 
 /** @typedef {{id: string, a: number, b: number, product: number}} Card */
 
@@ -67,10 +67,10 @@ export function refillField(field, pile, size) {
   return next;
 }
 
-/** 答えが product になる a×b（1〜9 の九九の範囲）をすべて返す */
-export function expressionsFor(product) {
+/** 答えが product になる a×b をすべて返す（a は扱う段、b は 1〜9） */
+export function expressionsFor(product, dans = ALL_DANS) {
   const list = [];
-  for (let a = MULTIPLIER_MIN; a <= MULTIPLIER_MAX; a += 1) {
+  for (const a of dans) {
     for (let b = MULTIPLIER_MIN; b <= MULTIPLIER_MAX; b += 1) {
       if (a * b === product) list.push(makeCard(a, b));
     }
@@ -100,6 +100,45 @@ export function pickSameTarget(field, rng) {
   const expr = pickRandom(candidates, rng);
   if (!expr) return null;
   return { kind: 'expr', product: expr.product, a: expr.a, b: expr.b, label: `${expr.a}×${expr.b}` };
+}
+
+/**
+ * カードとり2で場から問題が作れない時（相方がみな場にそろっている等）、
+ * 場のカードを1枚入れ替えて問題が作れる形にする。
+ * @param {Card[]} field 今の場
+ * @param {Card[]} gameCards このゲームで使うカード（選んだ段）
+ * @returns {{field: Card[], target: object} | null}
+ */
+export function forceSameTarget(field, gameCards, rng) {
+  if (field.length === 0) return null;
+  const fieldIds = new Set(field.map((c) => c.id));
+  const options = [];
+  for (const expr of allExpressions()) {
+    if (fieldIds.has(expr.id)) continue;
+    for (const partner of gameCards) {
+      if (partner.product === expr.product && partner.id !== expr.id && !fieldIds.has(partner.id)) {
+        options.push({ expr, partner });
+      }
+    }
+  }
+  const pick = pickRandom(options, rng);
+  if (!pick) return null;
+  const replaceIndex = Math.floor(rng() * field.length);
+  const nextField = field.map((card, i) => (i === replaceIndex ? pick.partner : card));
+  const { expr } = pick;
+  return {
+    field: nextField,
+    target: { kind: 'expr', product: expr.product, a: expr.a, b: expr.b, label: `${expr.a}×${expr.b}` },
+  };
+}
+
+/** 扱う段のすべての式 */
+function allExpressions() {
+  const list = [];
+  for (const a of ALL_DANS) {
+    for (let b = MULTIPLIER_MIN; b <= MULTIPLIER_MAX; b += 1) list.push(makeCard(a, b));
+  }
+  return list;
 }
 
 /** その問題の正解カードかどうか（答えが同じなら、どの式でも正解） */

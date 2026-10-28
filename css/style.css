@@ -77,7 +77,7 @@ button {
 
 .options { display: flex; flex-wrap: wrap; gap: 8px; }
 .options--mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.options--dans { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+.options--dans { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
 
 .option {
   border: 2px solid var(--card-edge);
@@ -352,7 +352,7 @@ button {
 
 @media (max-width: 640px) {
   .options--mode { grid-template-columns: 1fr; }
-  .options--dans { grid-template-columns: repeat(5, 1fr); }
+  .options--dans { grid-template-columns: repeat(2, 1fr); }
   .panel--row { grid-template-columns: 1fr; }
   .board--field { grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px; }
   .board--field .card { min-height: 64px; }

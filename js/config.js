@@ -6,8 +6,12 @@ export const GAME_TITLE = 'くくの カードゲーム';
 export const MULTIPLIER_MIN = 1;
 export const MULTIPLIER_MAX = 9;
 
-/** 選べる段（1〜9の段） */
-export const ALL_DANS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+/**
+ * このゲームで扱う段（学習した段）。
+ * 選べる段であり、カードとり2で出す「答えが同じ式」もこの段の式だけにする。
+ * 6の段以降を習ったら、ここに足すだけで広がる。
+ */
+export const ALL_DANS = [2, 3, 4, 5];
 
 /** カードとりで場に並べる枚数 */
 export const FIELD_SIZE = 12;
