@@ -335,7 +335,55 @@ button {
 .review-a { color: var(--ink-soft); font-weight: 700; }
 .result-actions { display: grid; gap: 10px; }
 
+/* ---------- 先生が止めている間 ---------- */
+
+.screen-stopped { text-align: center; padding: 48px 8px; }
+.sleep-face { width: 120px; height: 120px; animation: float 3s ease-in-out infinite; }
+.stopped-title { font-size: clamp(2rem, 7vw, 2.8rem); font-weight: 900; margin: 12px 0 8px; }
+.stopped-message {
+  display: inline-block;
+  max-width: 28em;
+  margin: 8px auto 4px;
+  background: var(--card);
+  border: 2px solid var(--answer);
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.6;
+}
+.stopped-message[hidden] { display: none; }
+.stopped-note { color: var(--ink-soft); font-weight: 700; margin-top: 14px; }
+
+/* ---------- 管理者ページ ---------- */
+
+.admin { max-width: 520px; margin: 0 auto; }
+.admin h1 { font-size: 1.5rem; margin: 8px 0 14px; }
+.admin label { display: block; margin: 10px 0 4px; font-size: 0.9rem; color: var(--ink-soft); font-weight: 700; }
+.admin input[type='password'], .admin input[type='text'] {
+  width: 100%;
+  font: inherit;
+  font-size: 1rem;
+  padding: 10px;
+  border: 2px solid var(--card-edge);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.admin-state { font-size: 1.4rem; font-weight: 900; margin: 0 0 4px; }
+.admin-state[data-on='true'] { color: var(--player); }
+.admin-state[data-on='false'] { color: var(--cpu); }
+.admin-hint { margin: 0 0 8px; color: var(--ink-soft); font-size: 0.9rem; }
+.admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.admin-actions .primary-button { font-size: 1.1rem; letter-spacing: 0.04em; }
+.danger-button { border: none; background: var(--cpu); color: #fff; box-shadow: 0 4px 0 #a13d27; border-radius: 999px; padding: 16px; font-size: 1.1rem; font-weight: 900; }
+.danger-button:active { transform: translateY(3px); box-shadow: 0 1px 0 #a13d27; }
+.admin button:disabled { opacity: 0.5; cursor: not-allowed; }
+.admin-error { min-height: 1.4em; margin: 10px 0 0; color: var(--cpu); font-weight: 700; font-size: 0.95rem; }
+.admin-note { margin: 4px 0 0; color: var(--ink-soft); font-size: 0.85rem; }
+
 /* ---------- 動き ---------- */
+
+@keyframes float { 50% { transform: translateY(-8px); } }
 
 @keyframes deal { from { opacity: 0; transform: translateY(-14px) rotate(-4deg); } to { opacity: 1; transform: none; } }
 @keyframes pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }

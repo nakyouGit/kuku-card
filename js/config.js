@@ -60,3 +60,22 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const STORAGE_KEY = 'kukuCard.settings.v1';
+
+/**
+ * 先生が止められるようにするための窓口（九九クエストのガス。ウェブアプリの公開用の住所）。
+ * 住所は秘密ではない。止める操作は、管理者のパスワードで守られている。
+ * ガスを作り直した時は、ここだけを差し替える。
+ */
+export const STOP_API_URL =
+  'https://script.google.com/macros/s/AKfycbx6cF50o3KLf3YaDk7tmP1WD0mlyxtIzbwJpbjI7VJmurAGVNQnPhbSBapac-wxf2CHXw/exec';
+
+/** 止まっているかを見に行く間隔と、1回の待ち時間（ミリ秒） */
+export const STOP_POLL_MS = 20000;
+export const STOP_REQUEST_TIMEOUT_MS = 6000;
+/** 「はじめる」を押した時に、状態の確認を待つ長さ。遅い時は、分かっている状態で進める */
+export const START_CHECK_WAIT_MS = 1500;
+
+/** 管理者ページ */
+export const ADMIN_ID = 'admin';
+export const ADMIN_MESSAGE_MAX_CHARS = 60;
+export const ADMIN_TOKEN_STORAGE_KEY = 'kukuCard.adminToken.v1';

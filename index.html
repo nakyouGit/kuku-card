@@ -86,6 +86,21 @@
       <button id="btn-quit" type="button" class="quit-button">やめる</button>
     </section>
 
+    <!-- 先生が止めている間 -->
+    <section id="screen-stopped" class="screen screen-stopped" hidden>
+      <svg class="sleep-face" viewBox="0 0 80 80" aria-hidden="true">
+        <line x1="40" y1="6" x2="40" y2="16" class="cpu-antenna"/>
+        <circle cx="40" cy="6" r="4" class="cpu-bulb"/>
+        <rect x="10" y="16" width="60" height="52" rx="16" class="cpu-head"/>
+        <path d="M21 40 Q29 46 37 40" class="cpu-mouth"/>
+        <path d="M43 40 Q51 46 59 40" class="cpu-mouth"/>
+        <path d="M32 56 H48" class="cpu-mouth"/>
+      </svg>
+      <h2 class="stopped-title">いまは おやすみ</h2>
+      <p id="stopped-message" class="stopped-message"></p>
+      <p class="stopped-note">せんせいが はじめると、じどうで もどるよ</p>
+    </section>
+
     <!-- 結果 -->
     <section id="screen-result" class="screen screen-result" hidden>
       <h2 id="result-headline" class="result-headline"></h2>

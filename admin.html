@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>くくの カードゲーム 管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main id="app" class="admin">
+    <h1>くくの カードゲーム 管理</h1>
+
+    <section id="panel-login" class="panel">
+      <h2 class="panel-title">ログイン</h2>
+      <label for="admin-password">パスワード（九九クエストの管理者と同じ）</label>
+      <input id="admin-password" type="password" autocomplete="current-password">
+      <p id="login-error" class="admin-error" role="alert"></p>
+      <button id="btn-login" type="button" class="primary-button">ログイン</button>
+    </section>
+
+    <section id="panel-control" class="panel" hidden>
+      <h2 class="panel-title">いまの状態</h2>
+      <p id="state" class="admin-state" data-on="true">確かめています…</p>
+      <p id="state-message" class="admin-hint"></p>
+
+      <label for="stop-message">止める時に子どもへ見せる一言（空でもよい。60文字まで）</label>
+      <input id="stop-message" type="text" maxlength="60" placeholder="例：しゅくだいが おわってから あそぼう">
+      <p class="admin-note">子どもの画面は、20秒ごとに状態を確かめます。止めると、遊んでいる途中でも「おやすみ」になります。</p>
+
+      <div class="admin-actions">
+        <button id="btn-stop" type="button" class="danger-button">とめる</button>
+        <button id="btn-resume" type="button" class="primary-button">さいかいする</button>
+      </div>
+      <p id="control-error" class="admin-error" role="alert"></p>
+      <button id="btn-logout" type="button" class="secondary-button">ログアウト</button>
+    </section>
+  </main>
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>
