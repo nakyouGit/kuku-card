@@ -9,7 +9,7 @@ for (const file of ['kuku-readings.js', 'game-config.js', 'game-questions.js', '
   vm.runInContext(readFileSync(new URL(`../kentei/${file}`, import.meta.url), 'utf8'), context);
 }
 const { KukuGameQuestions: Q, KukuGameRecords: R } = context.window;
-const bs = (list) => list.map((q) => q.b);
+const bs = (list) => Array.from(list, (q) => q.b); // vm の配列をこちらの配列に直す
 
 test('じゅんばんどおり・ぎゃく・ランダムの並び', () => {
   assert.deepEqual(bs(Q.buildQuestions(3, 'order')), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
