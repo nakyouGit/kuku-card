@@ -269,7 +269,7 @@
       } catch (err) {
         if (currentRun !== run) return;
         if (err instanceof T.MicStoppedError) {
-          await waitForResume(err.code);
+          await waitForResume(runner.stoppedAfterReopen ? '' : err.code);
           if (currentRun !== run) return;
           continue; // 同じ問題をもう一度
         }

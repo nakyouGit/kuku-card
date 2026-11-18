@@ -22,6 +22,9 @@
     FEEDBACK_GOOD_MS: 700,              // ○ を見せる時間
     FEEDBACK_MISS_MS: 1800,             // △・× と正しい読み方を見せる時間
     REOPEN_EACH_QUESTION: true,         // 1問ごとにマイクを開き直す（音の検出で正しく測れる）
+    REOPEN_MIN_AGE_MS: 5000,            // 開いたばかりのマイク（カウントダウン中に開いたもの）は開き直さない
+    REOPEN_FAILURE_WINDOW_MS: 4000,     // 開き直してからこの間に止まったら、開き直しが原因とみなす
+    NO_REOPEN_STORAGE_KEY: 'kukuKentei.noReopen.v1', // 開き直せない端末の印（iPad など）
     MAX_ALTERNATIVES: 5,
 
     // 読みがなの辞書

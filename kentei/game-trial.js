@@ -21,6 +21,14 @@
     }
   }
 
+  function readNoReopenMark(key) {
+    try { return global.localStorage.getItem(key) === '1'; } catch (err) { return false; }
+  }
+
+  function writeNoReopenMark(key) {
+    try { global.localStorage.setItem(key, '1'); } catch (err) { /* 残せなくても、この回は開き直さない */ }
+  }
+
   function stripPrefix(text, prefix) {
     return prefix && text.startsWith(prefix) ? text.slice(prefix.length) : text;
   }
@@ -36,8 +44,11 @@
       this._session = null;
       this._latest = new Map();
       this._trial = null;
-      this._reopen = config.REOPEN_EACH_QUESTION;
+      this._reopen = config.REOPEN_EACH_QUESTION && !readNoReopenMark(config.NO_REOPEN_STORAGE_KEY);
       this._lastErrorCode = '';
+      this._micStartedAt = 0;
+      this._lastReopenAt = 0;
+      this._stoppedAfterReopen = false;
     }
 
     static isSupported() {
@@ -57,15 +68,24 @@
         });
       }
       this._lastErrorCode = '';
-      if (!this._session.isRunning) this._session.start();
+      if (!this._session.isRunning) {
+        this._micStartedAt = performance.now();
+        this._session.start();
+      }
     }
 
-    /** マイクが止まった後に、ボタンから再開する。開き直しで止まった時は、以後は開き直さない。 */
+    /**
+     * マイクが止まった後に、ボタンから再開する。
+     * 開き直した直後に止まった時は、この端末では開き直せない（iPad はボタンを押した時しかマイクを開けないことがある）とみなし、
+     * 以後は開き直さずに聞き続ける。その印は端末に残す。
+     */
     resumeMic() {
-      if (this._lastErrorCode.startsWith('start-failed') || this._lastErrorCode === 'restart-loop') {
+      if (this._stoppedAfterReopen && this._reopen) {
         this._reopen = false;
+        writeNoReopenMark(this._config.NO_REOPEN_STORAGE_KEY);
         this._log('mic', 'reopen disabled');
       }
+      this._stoppedAfterReopen = false;
       this.startMic();
     }
 
@@ -76,6 +96,11 @@
 
     get lastErrorCode() {
       return this._lastErrorCode;
+    }
+
+    /** 開き直した直後に止まったか（その時は、つづけるで直る） */
+    get stoppedAfterReopen() {
+      return this._stoppedAfterReopen;
     }
 
     /**
@@ -97,7 +122,11 @@
           alternatives: [], baseline: new Map(), timerId: null, warmupId: null,
         };
         this._trial = trial;
-        if (this._reopen) this._session.restartNow();
+        const now = performance.now();
+        if (this._reopen && now - this._micStartedAt >= this._config.REOPEN_MIN_AGE_MS) {
+          this._lastReopenAt = now;
+          this._session.restartNow();
+        }
         trial.warmupId = setTimeout(() => {
           if (this._trial !== trial) return;
           trial.baseline = new Map(this._latest);
@@ -160,7 +189,11 @@
 
     _handleState(state) {
       this._log('mic', state);
-      if (state !== global.SpeechSession.STATES.STOPPED || !this._trial) return;
+      if (state !== global.SpeechSession.STATES.STOPPED) return;
+      if (this._lastReopenAt && performance.now() - this._lastReopenAt <= this._config.REOPEN_FAILURE_WINDOW_MS) {
+        this._stoppedAfterReopen = true;
+      }
+      if (!this._trial) return;
       const trial = this._trial;
       this.cancel();
       trial.reject(new MicStoppedError(this._lastErrorCode));
