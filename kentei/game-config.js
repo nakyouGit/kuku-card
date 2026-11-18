@@ -33,6 +33,9 @@
     RECORDS_STORAGE_KEY: 'kukuKentei.records.v1',
     SETTINGS_STORAGE_KEY: 'kukuKentei.settings.v1',
 
+    // 先生が止める（見張りは game-stop.js。間隔と通信の待ち時間は js/config.js）
+    START_STOP_CHECK_WAIT_MS: 1500,     // スタートを押した時に、止まっているかの確認を待つ長さ
+
     // はじめの設定
     DEFAULT_DAN: 2,
     DEFAULT_MODE: 'order',

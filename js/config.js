@@ -71,6 +71,12 @@ export const STORAGE_KEY = 'kukuCard.settings.v1';
 export const STOP_API_URL =
   'https://script.google.com/macros/s/AKfycbx6cF50o3KLf3YaDk7tmP1WD0mlyxtIzbwJpbjI7VJmurAGVNQnPhbSBapac-wxf2CHXw/exec';
 
+/** 止める印の操作名（ガス側の名前と合わせる） */
+export const STOP_TARGETS = {
+  card: { label: 'くくの カードゲーム', statusAction: 'cardStatus', setAction: 'setCard' },
+  kentei: { label: '九九けんてい', statusAction: 'kenteiStatus', setAction: 'setKentei' },
+};
+
 /** 止まっているかを見に行く間隔と、1回の待ち時間（ミリ秒） */
 export const STOP_POLL_MS = 20000;
 export const STOP_REQUEST_TIMEOUT_MS = 6000;

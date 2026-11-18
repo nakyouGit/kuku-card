@@ -28,7 +28,10 @@
   // ===== 画面の部品 =====
   const $ = (id) => document.getElementById(id);
   const ui = {
-    screens: { title: $('titleScreen'), play: $('playScreen'), result: $('resultScreen') },
+    screens: {
+      title: $('titleScreen'), play: $('playScreen'), result: $('resultScreen'), stopped: $('stoppedScreen'),
+    },
+    stoppedMessage: $('stoppedMessage'),
     danButtons: $('danButtons'),
     modeButtons: $('modeButtons'),
     hintToggle: $('hintToggle'),
@@ -61,6 +64,7 @@
   let currentRun = null;
   let lastRun = null;
   let resumeWaiter = null;
+  let starting = false;
 
   init();
 
@@ -72,6 +76,40 @@
     bindEvents();
     refreshSelection();
     prepare();
+    window.addEventListener('kentei-stop-change', (event) => handleStopChange(event.detail));
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && currentRun) quitRun(); // 別の画面に移ったら、遊びとマイクを止める
+    });
+  }
+
+  // ===== 先生が止める =====
+  function isStopped() {
+    return Boolean(window.KukuKenteiStop && window.KukuKenteiStop.getState().stopped);
+  }
+
+  /** 止まった・再開したが分かった時の画面の切り替え */
+  function handleStopChange({ stopped, message }) {
+    if (stopped) {
+      ui.stoppedMessage.textContent = message;
+      ui.stoppedMessage.hidden = message === '';
+      if (currentRun) abandonRun();
+      if (!ui.screens.result.hidden) return; // 結果を見ている間は、そのままにする
+      showScreen('stopped');
+    } else if (!ui.screens.stopped.hidden) {
+      refreshSelection();
+      showScreen('title');
+    }
+  }
+
+  /** スタートの前に、止まっていないかを確かめる。回線が遅い時は待たずに進める */
+  async function confirmNotStopped() {
+    if (!window.KukuKenteiStop) return true; // 見張りが読み込めない時は止めない
+    await Promise.race([window.KukuKenteiStop.checkNow(), sleep(C.START_STOP_CHECK_WAIT_MS)]);
+    if (isStopped()) {
+      showScreen('stopped');
+      return false;
+    }
+    return true;
   }
 
   function bindEvents() {
@@ -112,7 +150,7 @@
     });
     ui.backButton.addEventListener('click', () => {
       refreshSelection();
-      showScreen('title');
+      showScreen(isStopped() ? 'stopped' : 'title');
     });
   }
 
@@ -188,8 +226,16 @@
   }
 
   // ===== あそぶ =====
-  function startRun(options) {
-    runner.startMic(); // ボタンを押した処理の中でマイクを開く（iPad の決まり）
+  async function startRun(options) {
+    if (starting || currentRun) return; // 続けて押された時に、2回始まらないように
+    starting = true;
+    runner.startMic(); // ボタンを押した処理の中でマイクを開く（iPad の決まり）。確かめる前に開いておく
+    const allowed = await confirmNotStopped();
+    starting = false;
+    if (!allowed) {
+      runner.stopMic();
+      return;
+    }
     const run = Object.assign({ results: [], index: 0 }, options);
     if (!run.origin) {
       run.origin = {
@@ -276,12 +322,17 @@
   }
 
   function quitRun() {
+    abandonRun();
+    refreshSelection();
+    showScreen('title');
+  }
+
+  /** 遊びを途中でやめて、マイクを止める（画面は変えない） */
+  function abandonRun() {
     currentRun = null;
     resumeWaiter = null;
     runner.stopMic();
     ui.pausePanel.hidden = true;
-    refreshSelection();
-    showScreen('title');
   }
 
   // ===== けっか =====

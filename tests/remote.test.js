@@ -117,3 +117,18 @@ test('見張り: 一定間隔で確かめ、休ませると止まる', async () 
   watcher.pause();
   assert.equal(isTicking(), false);
 });
+
+test('九九けんてい用の操作名で訊く・止める', async () => {
+  const seen = [];
+  const remote = createRemote({
+    url: 'https://example.invalid/exec',
+    fetchImpl: async (url, init) => { seen.push(JSON.parse(init.body)); return { ok: true, json: async () => ({ ok: true, enabled: false, message: 'まってね' }) }; },
+    timers: { setTimeout, clearTimeout },
+    timeoutMs: 50,
+    statusAction: 'kenteiStatus',
+    setAction: 'setKentei',
+  });
+  assert.deepEqual(await remote.fetchStatus(), { enabled: false, message: 'まってね' });
+  assert.equal((await remote.setEnabled('t', false, 'まってね')).ok, true);
+  assert.deepEqual(seen.map((b) => b.action), ['kenteiStatus', 'setKentei']);
+});

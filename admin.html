@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>くくの カードゲーム 管理</title>
+  <title>九九の ゲーム 管理</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
@@ -12,7 +12,8 @@
 </head>
 <body>
   <main id="app" class="admin">
-    <h1>くくの カードゲーム 管理</h1>
+    <h1>九九の ゲーム 管理</h1>
+    <p class="admin-hint">くくの カードゲームと 九九けんていを、別々に止められます。</p>
 
     <section id="panel-login" class="panel">
       <h2 class="panel-title">ログイン</h2>
@@ -23,21 +24,25 @@
     </section>
 
     <section id="panel-control" class="panel" hidden>
-      <h2 class="panel-title">いまの状態</h2>
-      <p id="state" class="admin-state" data-on="true">確かめています…</p>
-      <p id="state-message" class="admin-hint"></p>
-
-      <label for="stop-message">止める時に子どもへ見せる一言（空でもよい。60文字まで）</label>
-      <input id="stop-message" type="text" maxlength="60" placeholder="例：しゅくだいが おわってから あそぼう">
       <p class="admin-note">子どもの画面は、20秒ごとに状態を確かめます。止めると、遊んでいる途中でも「おやすみ」になります。</p>
-
-      <div class="admin-actions">
-        <button id="btn-stop" type="button" class="danger-button">とめる</button>
-        <button id="btn-resume" type="button" class="primary-button">さいかいする</button>
-      </div>
-      <p id="control-error" class="admin-error" role="alert"></p>
+      <div id="targets"></div>
       <button id="btn-logout" type="button" class="secondary-button">ログアウト</button>
     </section>
+
+    <template id="target-template">
+      <div class="admin-target">
+        <h2 class="panel-title" data-role="title"></h2>
+        <p class="admin-state" data-role="state" data-on="true">確かめています…</p>
+        <p class="admin-hint" data-role="state-message"></p>
+        <label data-role="message-label">止める時に子どもへ見せる一言（空でもよい。60文字まで）</label>
+        <input data-role="message" type="text" maxlength="60" placeholder="例：しゅくだいが おわってから あそぼう">
+        <div class="admin-actions">
+          <button data-role="stop" type="button" class="danger-button">とめる</button>
+          <button data-role="resume" type="button" class="primary-button">さいかいする</button>
+        </div>
+        <p class="admin-error" data-role="error" role="alert"></p>
+      </div>
+    </template>
   </main>
   <script type="module" src="js/admin.js"></script>
 </body>

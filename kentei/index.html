@@ -44,6 +44,13 @@
     </div>
   </section>
 
+  <!-- 先生が止めている時の画面 -->
+  <section id="stoppedScreen" class="screen" hidden>
+    <h1 class="result-title">いまは おやすみ だよ</h1>
+    <p id="stoppedMessage" class="lead" hidden></p>
+    <p class="status">せんせいが また はじめるまで まってね</p>
+  </section>
+
   <!-- けっかの画面 -->
   <section id="resultScreen" class="screen" hidden>
     <h1 id="resultTitle" class="result-title"></h1>
@@ -70,5 +77,6 @@
 <script src="game-records.js"></script>
 <script src="game-trial.js"></script>
 <script src="game-main.js"></script>
+<script type="module" src="game-stop.js"></script>
 </body>
 </html>
