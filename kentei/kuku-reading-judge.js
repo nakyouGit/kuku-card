@@ -1,11 +1,12 @@
 /**
  * kuku-reading-judge.js
- * 九九の「読み方」が正しいかを、3段階（○・×・？）で判定する。
+ * 九九の「読み方」が正しいかを、○か×で判定する（児童が自分で練習するためのもの）。
+ * 明確な読み違いがなければ、聞き取りが多少あいまいでも ○ にする（2026-11-19 庸平の方針）。
  *
  * 音声認識は「兄さんがさん」「変化 額」のように言葉として返すため、
  * 辞書（kuromoji）で読みがなに直してから、正しい読みとの近さを測る。
  * よくある読み違い（なな・きゅう・よん・はちはち など）の方が近ければ × にする。
- * 数字で返ってきた部分は読み方が分からないので、既定では ？（先生が確認）にする。
+ * 数字で返ってきて読み方が分からない部分は、答えの数が合っていれば ○ にする。
  *
  * 使う前に KukuJudge（kuku-judge.js）と kuromoji（vendor/kuromoji/kuromoji.js）を読み込むこと。
  */
@@ -13,17 +14,13 @@
   'use strict';
 
   const SETTINGS = Object.freeze({
-    OK_SIMILARITY: 0.6,      // これ以上近ければ ○（2026-11-19 のログで決めた）
-    NG_SIMILARITY: 0.4,      // これより遠ければ ×
-    DIGITS_MAKE_UNKNOWN: true, // 読み方が分からない数字で返った時は ？ にする
+    NG_SIMILARITY: 0.35,     // これより遠ければ、別の式を言ったとみなして ×（ログの最も遠い ○ は0.5）
     MAX_COMBINATIONS: 256,
   });
 
-  // 子どもが読み違えやすい数字（し/よん、しち/なな、く/きゅう）
-  const AMBIGUOUS_DIGITS = /[479]/;
   const KANJI_NUMERAL_ONLY = /^[〇零一二三四五六七八九十]+$/;
 
-  const VERDICTS = Object.freeze({ OK: 'ok', NG: 'ng', UNKNOWN: 'unknown' });
+  const VERDICTS = Object.freeze({ OK: 'ok', NG: 'ng' });
 
   const UNIT_READINGS = Object.freeze({
     1: ['いち', 'いん'], 2: ['に'], 3: ['さん', 'さ'], 4: ['し', 'よん'], 5: ['ご'],
@@ -186,16 +183,6 @@
     return [...out];
   }
 
-  /**
-   * 数字の部分で、読み方の判定に要る情報が消えているか。
-   * 答え（最後）以外が数字なら消えている。答えでも 4・7・9 を含めば消えている（よん・なな・きゅうと読んだか分からない）。
-   */
-  function hidesReading(segments) {
-    const lastIndex = segments.length - 1;
-    return segments.some((seg, i) => seg.type === 'num'
-      && (i !== lastIndex || AMBIGUOUS_DIGITS.test(String(seg.value))));
-  }
-
   // ===== 判定 =====
   /**
    * @param {string[]} transcripts 認識の候補（一番目が本命）
@@ -205,7 +192,11 @@
   function judgeReading(transcripts, a, b, expectedReading) {
     const base = { kana: '', similarity: null, nearestWrong: null, hasDigits: false, transcript: transcripts[0] || '' };
     if (!tokenizer) {
-      return Object.assign(base, { verdict: VERDICTS.UNKNOWN, reason: '辞書の読み込みがまだです' });
+      // 辞書が無い時は読み方を見られないので、答えの数だけで決める
+      const answerOk = transcripts.some((t) => global.KukuJudge.judge(t, a, b, expectedReading).ok);
+      return Object.assign(base, answerOk
+        ? { verdict: VERDICTS.OK, reason: '辞書がないため、答えの数だけで判定' }
+        : { verdict: VERDICTS.NG, reason: '辞書がないため、答えの数だけで判定' });
     }
     const expected = global.KukuJudge.normalizeText(expectedReading);
     const variants = wrongVariants(expected);
@@ -215,7 +206,6 @@
       const segments = toSegments(transcript);
       if (segments.length === 0) continue;
       const hasDigits = segments.some((s) => s.type === 'num');
-      const digitsHideReading = hidesReading(segments);
       const answerWrong = hasDigits && !global.KukuJudge.judge(transcript, a, b, '').ok;
       for (const kana of expandSegments(segments)) {
         const sim = similarity(kana, expected);
@@ -225,7 +215,7 @@
           const d = editDistance(kana, v);
           if (!nearestWrong || d < nearestWrong.distance) nearestWrong = { reading: v, distance: d };
         }
-        const candidate = { transcript, kana, similarity: sim, distance, nearestWrong, hasDigits, digitsHideReading, answerWrong };
+        const candidate = { transcript, kana, similarity: sim, distance, nearestWrong, hasDigits, answerWrong };
         if (!best || candidate.similarity > best.similarity) best = candidate;
       }
     }
@@ -245,14 +235,8 @@
     if (best.nearestWrong && best.nearestWrong.distance < best.distance) {
       return verdict(VERDICTS.NG, `よくある読み違い（${best.nearestWrong.reading}）に近い`);
     }
-    if (best.similarity < SETTINGS.NG_SIMILARITY) return verdict(VERDICTS.NG, '正しい読みから遠い');
-    if (best.similarity >= SETTINGS.OK_SIMILARITY) {
-      if (best.digitsHideReading && SETTINGS.DIGITS_MAKE_UNKNOWN) {
-        return verdict(VERDICTS.UNKNOWN, '数字で聞き取られた部分があるため、読み方は先生が確認');
-      }
-      return verdict(VERDICTS.OK, '正しい読みに近い');
-    }
-    return verdict(VERDICTS.UNKNOWN, 'どちらとも言えないため、先生が確認');
+    if (best.similarity < SETTINGS.NG_SIMILARITY) return verdict(VERDICTS.NG, '正しい読みから遠い（別の式を言った）');
+    return verdict(VERDICTS.OK, best.hasDigits ? '明確な読み違いなし（数字で聞き取られた部分あり）' : '明確な読み違いなし');
   }
 
   global.KukuReadingJudge = Object.freeze({

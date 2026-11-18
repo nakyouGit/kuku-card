@@ -45,14 +45,14 @@ ES モジュールのため、`index.html` を直接開くのではなく、公�
 - `kentei/` に、音声入力で九九の読み方を判定する九九検定ゲームを作っている。今はマイクテスト（`kentei/mic-test.html`）だけ。
 - iPad の Safari で開く（ホーム画面のアイコンからは開かない）。
 - 1秒の判定は「音の検出（speechstart）」の時刻で測る。マイクは毎問カウントダウンの間に開き直す。
-- 読み方の判定は ○・×・？ の3段階。音声認識の結果を辞書（kuromoji）で読みがなに直し、正しい読みとの近さと、よくある読み違い（なな・きゅう・よん・はちはち など）との近さで決める。数字で返って読み方が消えた時は ？（先生が確認）。線引きは `kentei/kuku-reading-judge.js` の SETTINGS。
+- 児童が自分で練習するためのもの。読み方の判定は ○ か ×。音声認識の結果を辞書（kuromoji）で読みがなに直し、よくある読み違い（なな・きゅう・よん・はちはち など）の方が近い時、答えの数がちがう時、正しい読みから遠い（別の式を言った）時だけ × にする。聞き取りが多少あいまいでも、明確な読み違いがなければ ○。線引きは `kentei/kuku-reading-judge.js` の SETTINGS。
 - 辞書（約18MB、`kentei/vendor/kuromoji/`、Apache License 2.0）は `kentei/sw.js` で端末に残し、2回目からは通信しない。
 
 | ファイル | 役割 |
 | --- | --- |
 | `kentei/kuku-readings.js` | 81問の読み方 |
 | `kentei/kuku-judge.js` | 答えの数の判定 |
-| `kentei/kuku-reading-judge.js` | 読み方の判定（○・×・？） |
+| `kentei/kuku-reading-judge.js` | 読み方の判定（○・×） |
 | `kentei/speech-session.js` | 音声認識の包み（自動で聞き直す） |
 | `kentei/sw.js` | 辞書を端末に残す |
 | `kentei/mic-test.html` | マイクテスト |

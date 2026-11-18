@@ -68,12 +68,6 @@
   <section>
     <h2>3. 結果</h2>
     <table><tbody id="resultBody"><tr><td>まだテストしていません</td></tr></tbody></table>
-    <div class="row" style="margin-top:12px">
-      <span class="note">先生の判定（線引きの調整に使います）:</span>
-      <button type="button" id="teacherOkButton" class="sub" disabled>○ 正しい</button>
-      <button type="button" id="teacherNgButton" class="sub" disabled>× ちがう</button>
-      <span id="teacherStatus" class="note"></span>
-    </div>
   </section>
 
   <section>
@@ -156,9 +150,6 @@
     clearLogButton: $('clearLogButton'),
     copyStatus: $('copyStatus'),
     dictState: $('dictState'),
-    teacherOkButton: $('teacherOkButton'),
-    teacherNgButton: $('teacherNgButton'),
-    teacherStatus: $('teacherStatus'),
   };
 
   // ===== 状態 =====
@@ -167,7 +158,6 @@
   let session = null;
   let trial = null;
   let errorCount = 0;
-  let lastJudged = null; // 先生の判定を付ける相手（直前のテスト）
 
   buildSelectors();
   renderEnvironment();
@@ -206,8 +196,6 @@
     ui.stopMicButton.addEventListener('click', () => { if (session) session.stop(); });
     ui.copyLogButton.addEventListener('click', copyLog);
     ui.clearLogButton.addEventListener('click', () => { logger.clear(); ui.copyStatus.textContent = ''; });
-    ui.teacherOkButton.addEventListener('click', () => recordTeacherVerdict('ok'));
-    ui.teacherNgButton.addEventListener('click', () => recordTeacherVerdict('ng'));
   }
 
   // ===== 読みがなの辞書 =====
@@ -221,7 +209,7 @@
       ui.dictState.textContent = `読みがなの辞書: 準備できました（${sec}秒）`;
       logger.write('dict', `loaded ${sec}s`);
     } catch (err) {
-      ui.dictState.textContent = '読みがなの辞書: 読み込めませんでした。読み方の判定は「？」になります。';
+      ui.dictState.textContent = '読みがなの辞書: 読み込めませんでした。答えの数だけで判定します。';
       logger.write('dict', `failed ${(err && err.message) || err}`);
     }
     ui.startButton.disabled = false;
@@ -247,12 +235,6 @@
     }
   }
 
-  function recordTeacherVerdict(verdict) {
-    if (!lastJudged) return;
-    const label = verdict === 'ok' ? '○' : '×';
-    logger.write('teacher', `${lastJudged.a}x${lastJudged.b} teacher=${verdict} machine=${lastJudged.verdict} kana="${lastJudged.kana}" sim=${lastJudged.similarity}`);
-    ui.teacherStatus.textContent = `先生の判定 ${label} を記録しました`;
-  }
 
   // ===== 音声認識 =====
   function ensureSession() {
@@ -337,10 +319,6 @@
     trial = current;
     ui.startButton.disabled = true;
     ui.resultBody.replaceChildren(makeRow('', 'テスト中…', ''));
-    lastJudged = null;
-    ui.teacherOkButton.disabled = true;
-    ui.teacherNgButton.disabled = true;
-    ui.teacherStatus.textContent = '';
     ui.micState.textContent = 'マイク: 準備中';
 
     ensureSession(); // ボタンを押した処理の中で開く（iPad の決まり）
@@ -438,7 +416,7 @@
     const judgement = KukuJudge.judgeAlternatives(transcripts, t.a, t.b, t.reading);
     const ruleLabel = KukuJudge.RULE_LABELS[judgement.rule];
     const reading = KukuReadingJudge.judgeReading(transcripts, t.a, t.b, t.reading);
-    const verdictMarks = { ok: ['○', 'ok'], ng: ['×', 'ng'], unknown: ['？', 'warn'] };
+    const verdictMarks = { ok: ['○', 'ok'], ng: ['×', 'ng'] };
     const [mark, markClass] = verdictMarks[reading.verdict];
 
     const rows = [
@@ -458,10 +436,6 @@
     ];
     ui.resultBody.replaceChildren(...rows.map(([label, value, cls]) => makeRow(label, value, cls)));
     logger.write('result', `${t.a}x${t.b} first=${formatSec(firstSec)} speech=${formatSec(speechSec)} start=${formatSec(startSec)} final=${formatSec(finalSec)} text="${transcripts[0] || ''}" kana="${reading.kana}" sim=${reading.similarity === null ? '-' : reading.similarity.toFixed(2)} reading=${reading.verdict} answer=${judgement.rule}`);
-    lastJudged = { a: t.a, b: t.b, verdict: reading.verdict, kana: reading.kana, similarity: reading.similarity === null ? '-' : reading.similarity.toFixed(2) };
-    ui.teacherOkButton.disabled = false;
-    ui.teacherNgButton.disabled = false;
-    ui.teacherStatus.textContent = '';
   }
 
   function addHeard(text) {
