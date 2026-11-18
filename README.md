@@ -40,3 +40,7 @@
 npm test
 ```
 ES モジュールのため、`index.html` を直接開くのではなく、公開先かローカルのサーバー（`python3 -m http.server`）で開く。
+
+## 九九検定（作成中）
+- `kentei/` に、音声入力で九九の読み方を判定する九九検定ゲームを作っている。今はマイクテスト（`kentei/mic-test.html`）だけ。
+- iPad の Safari で開く（ホーム画面のアイコンからは開かない）。読み方は `kentei/kuku-readings.js`、判定は `kentei/kuku-judge.js`、音声認識の包みは `kentei/speech-session.js`。

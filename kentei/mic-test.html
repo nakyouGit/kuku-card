@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>九九検定 マイクテスト</title>
+<style>
+  :root { --main:#2f6fd6; --ok:#1f8a4c; --ng:#c0392b; --warn:#b7791f; --line:#d9dde3; --bg:#f7f8fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif; background:var(--bg); color:#222; line-height:1.6; }
+  main { max-width:860px; margin:0 auto; padding:16px; }
+  section { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  h1 { font-size:22px; margin:4px 0 16px; }
+  h2 { font-size:18px; margin:0 0 12px; }
+  button { font-size:18px; padding:12px 20px; border-radius:10px; border:none; background:var(--main); color:#fff; min-height:52px; }
+  button.sub { background:#fff; color:var(--main); border:2px solid var(--main); }
+  button:disabled { opacity:.4; }
+  select { font-size:18px; padding:8px; min-height:44px; }
+  label { font-size:16px; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:8px; }
+  #stage { text-align:center; padding:20px 8px; border:2px dashed var(--line); border-radius:12px; margin:12px 0; min-height:170px; }
+  #stageMain { font-size:72px; font-weight:700; letter-spacing:2px; }
+  #stageSub { font-size:22px; color:#555; min-height:1.6em; }
+  table { width:100%; border-collapse:collapse; font-size:16px; }
+  th, td { border-bottom:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+  th { width:38%; color:#555; font-weight:600; }
+  .ok { color:var(--ok); font-weight:700; }
+  .ng { color:var(--ng); font-weight:700; }
+  .warn { color:var(--warn); font-weight:700; }
+  #heardList { list-style:none; padding:0; margin:0; max-height:260px; overflow:auto; font-size:16px; }
+  #heardList li { border-bottom:1px solid var(--line); padding:6px 0; }
+  textarea { width:100%; height:200px; font-size:13px; font-family:ui-monospace,Menlo,monospace; }
+  .note { font-size:14px; color:#555; margin:4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>九九検定 マイクテスト</h1>
+
+  <section>
+    <h2>1. この端末で使えるか</h2>
+    <table><tbody id="envTable"></tbody></table>
+  </section>
+
+  <section>
+    <h2>2. テスト</h2>
+    <div class="row">
+      <select id="danSelect" aria-label="段"></select>
+      <select id="numSelect" aria-label="かける数"></select>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="showReading" checked> 読み方を表示する</label>
+      <label><input type="checkbox" id="reopenEachTrial"> テストのたびにマイクを開き直す（比べる用）</label>
+    </div>
+    <div id="stage">
+      <div id="stageMain">—</div>
+      <div id="stageSub">「テスト開始」を おしてね</div>
+    </div>
+    <div class="row">
+      <button type="button" id="startButton">テスト開始</button>
+      <button type="button" id="stopMicButton" class="sub" disabled>マイクを止める</button>
+    </div>
+    <p class="note" id="micState">マイク: 止まっています</p>
+    <p class="note" id="counters"></p>
+  </section>
+
+  <section>
+    <h2>3. 結果</h2>
+    <table><tbody id="resultBody"><tr><td>まだテストしていません</td></tr></tbody></table>
+  </section>
+
+  <section>
+    <h2>4. 聞こえた言葉（確定したものを新しい順に）</h2>
+    <ul id="heardList"></ul>
+  </section>
+
+  <section>
+    <h2>5. ログ</h2>
+    <p class="note">テストが終わったら「ログをコピー」を押して、チャットに貼ってください。</p>
+    <div class="row">
+      <button type="button" id="copyLogButton">ログをコピー</button>
+      <button type="button" id="clearLogButton" class="sub">ログを消す</button>
+      <span id="copyStatus" class="note"></span>
+    </div>
+    <textarea id="logArea" readonly></textarea>
+  </section>
+</main>
+
+<script src="kuku-readings.js"></script>
+<script src="kuku-judge.js"></script>
+<script src="speech-session.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ===== 設定値 =====
+  const CONFIG = Object.freeze({
+    LANG: 'ja-JP',
+    COUNTDOWN_SEC: 3,
+    LIMIT_SEC: 1.0,                          // 言い始めの制限時間
+    RECOGNITION_GRACE_SEC: 0.5,              // iPad の認識の遅れを見込んだ猶予
+    TRIAL_TIMEOUT_SEC: 4.0,                  // 1回のテストを打ち切るまで
+    SETTLE_AFTER_LAST_INTERIM_SEC: 1.2,      // 確定が来ない時、途中結果が止まってから待つ秒数
+    CHECK_INTERVAL_MS: 100,
+    MAX_ALTERNATIVES: 5,
+    HEARD_LIST_MAX: 30,
+  });
+
+  const ERROR_MESSAGES = Object.freeze({
+    'not-allowed': 'マイクの使用が許可されていません。Safari の設定でマイクを許可してください。',
+    'service-not-allowed': '音声入力が使えません。「設定 → 一般 → キーボード → 音声入力」がオンか確かめてください。',
+    'audio-capture': 'マイクが見つかりません。',
+    'language-not-supported': '日本語の音声認識が使えません。',
+    'not-supported': 'このブラウザでは音声認識が使えません。Safari で開いてください。',
+    'restart-loop': 'マイクがすぐに止まってしまいます。「テスト開始」をもう一度押してください。',
+    'network': '通信が切れて音声認識が止まりました。',
+  });
+
+  const END_REASON_LABELS = Object.freeze({
+    'final': '確定',
+    'interim-settled': '途中結果が止まったので終了',
+    'timeout': '時間切れ',
+  });
+
+  // ===== 画面の部品 =====
+  const $ = (id) => document.getElementById(id);
+  const ui = {
+    envTable: $('envTable'),
+    danSelect: $('danSelect'),
+    numSelect: $('numSelect'),
+    showReading: $('showReading'),
+    reopenEachTrial: $('reopenEachTrial'),
+    stageMain: $('stageMain'),
+    stageSub: $('stageSub'),
+    startButton: $('startButton'),
+    stopMicButton: $('stopMicButton'),
+    micState: $('micState'),
+    counters: $('counters'),
+    resultBody: $('resultBody'),
+    heardList: $('heardList'),
+    logArea: $('logArea'),
+    copyLogButton: $('copyLogButton'),
+    clearLogButton: $('clearLogButton'),
+    copyStatus: $('copyStatus'),
+  };
+
+  // ===== 状態 =====
+  const logger = createLogger(ui.logArea);
+  const latestTranscripts = new Map(); // 今の認識での resultIndex → 最新の文字
+  let session = null;
+  let trial = null;
+  let errorCount = 0;
+
+  buildSelectors();
+  renderEnvironment();
+  bindEvents();
+  updateCounters();
+
+  // ===== 初期化 =====
+  function buildSelectors() {
+    for (let n = KukuReadings.MIN_NUMBER; n <= KukuReadings.MAX_NUMBER; n += 1) {
+      ui.danSelect.add(new Option(`${n}のだん`, String(n)));
+    }
+    ui.numSelect.add(new Option('ランダム', 'random'));
+    for (let n = KukuReadings.MIN_NUMBER; n <= KukuReadings.MAX_NUMBER; n += 1) {
+      ui.numSelect.add(new Option(`×${n}`, String(n)));
+    }
+  }
+
+  function renderEnvironment() {
+    const supported = SpeechSession.isSupported();
+    const standalone = window.navigator.standalone === true;
+    const rows = [
+      ['音声認識', supported ? ['使えます', 'ok'] : ['使えません（Safari で開いてください）', 'ng']],
+      ['安全な接続（https）', window.isSecureContext ? ['はい', 'ok'] : ['いいえ（https で開いてください）', 'ng']],
+      ['開き方', standalone ? ['ホーム画面のアイコン（音声認識が動かないことがあります。Safari で開いてください）', 'warn'] : ['ブラウザ', 'ok']],
+      ['ブラウザ', [navigator.userAgent, '']],
+    ];
+    ui.envTable.replaceChildren(...rows.map(([label, [value, cls]]) => makeRow(label, value, cls)));
+    logger.write('env', `supported=${supported} secure=${window.isSecureContext} standalone=${standalone}`);
+    logger.write('env', navigator.userAgent);
+    logger.write('env', `limit=${CONFIG.LIMIT_SEC}s grace=${CONFIG.RECOGNITION_GRACE_SEC}s`);
+  }
+
+  function bindEvents() {
+    ui.startButton.addEventListener('click', runTrial);
+    ui.stopMicButton.addEventListener('click', () => { if (session) session.stop(); });
+    ui.copyLogButton.addEventListener('click', copyLog);
+    ui.clearLogButton.addEventListener('click', () => { logger.clear(); ui.copyStatus.textContent = ''; });
+  }
+
+  // ===== 音声認識 =====
+  function ensureSession() {
+    if (!session) {
+      session = new SpeechSession({
+        lang: CONFIG.LANG,
+        maxAlternatives: CONFIG.MAX_ALTERNATIVES,
+        onEvent: handleSessionEvent,
+        onResult: handleSessionResult,
+        onError: handleSessionError,
+        onStateChange: handleSessionState,
+      });
+    }
+    if (session.isRunning && ui.reopenEachTrial.checked) {
+      logger.write('mic', '開き直し');
+      session.restartNow();
+    } else if (!session.isRunning) {
+      session.start();
+    }
+  }
+
+  function handleSessionEvent(ev) {
+    logger.write('event', ev.name);
+    if (ev.name === 'start') {
+      latestTranscripts.clear();
+      if (trial) trial.baseline = new Map();
+    }
+    const isSpeechSignal = ev.name === 'speechstart' || ev.name === 'soundstart';
+    if (trial && trial.t0 !== null && ev.at >= trial.t0 && isSpeechSignal && trial.speechStartAt === null) {
+      trial.speechStartAt = ev.at;
+    }
+    updateCounters();
+  }
+
+  function handleSessionResult(r) {
+    const transcripts = r.alternatives.map((alt) => alt.transcript);
+    logger.write(r.isFinal ? 'final' : 'interim', `#${r.index} ${transcripts.join(' | ')}`);
+    applyResultToTrial(r);
+    latestTranscripts.set(r.index, transcripts[0] || '');
+    if (r.isFinal && transcripts[0] && transcripts[0].trim()) {
+      addHeard(transcripts[0].trim());
+    }
+  }
+
+  function handleSessionError(e) {
+    errorCount += 1;
+    logger.write('error', `${e.code} ${e.message}`.trim());
+    const message = ERROR_MESSAGES[e.code] || (e.code.startsWith('start-failed') ? 'マイクを開けませんでした。もう一度押してください。' : '');
+    if (message) ui.micState.textContent = `マイク: ${message}`;
+    updateCounters();
+  }
+
+  function handleSessionState(state) {
+    const running = state === SpeechSession.STATES.RUNNING;
+    ui.stopMicButton.disabled = !running;
+    if (running) {
+      ui.micState.textContent = 'マイク: 聞いています';
+    } else if (!ui.micState.textContent.includes('。')) {
+      ui.micState.textContent = 'マイク: 止まっています';
+    }
+    if (!running && trial) {
+      abortTrial('マイクが止まりました。「テスト開始」をもう一度押してください。');
+    }
+    updateCounters();
+  }
+
+  // ===== テスト1回分 =====
+  async function runTrial() {
+    if (trial) return;
+    if (!SpeechSession.isSupported()) {
+      showStage('×', ERROR_MESSAGES['not-supported']);
+      return;
+    }
+    const a = Number(ui.danSelect.value);
+    const b = ui.numSelect.value === 'random' ? randomInt(1, 9) : Number(ui.numSelect.value);
+    const reading = KukuReadings.getReading(a, b);
+    const current = {
+      a, b, reading,
+      t0: null, firstResultAt: null, lastUpdateAt: null, finalAt: null, speechStartAt: null,
+      alternatives: [], baseline: new Map(), timerId: null,
+    };
+    trial = current;
+    ui.startButton.disabled = true;
+    ui.resultBody.replaceChildren(makeRow('', 'テスト中…', ''));
+    ui.micState.textContent = 'マイク: 準備中';
+
+    ensureSession(); // ボタンを押した処理の中で開く（iPad の決まり）
+    logger.write('trial', `開始 ${a}×${b}`);
+
+    for (let n = CONFIG.COUNTDOWN_SEC; n >= 1; n -= 1) {
+      showStage(String(n), 'じゅんびしてね');
+      await sleep(1000);
+      if (trial !== current) return;
+    }
+
+    current.baseline = new Map(latestTranscripts);
+    current.t0 = performance.now();
+    showStage(`${a}×${b}`, ui.showReading.checked ? reading : '');
+    logger.write('trial', '式を表示');
+    scheduleCheck();
+  }
+
+  function applyResultToTrial(r) {
+    if (!trial || trial.t0 === null || r.at < trial.t0) return;
+    const base = trial.baseline.get(r.index) || '';
+    const alternatives = r.alternatives
+      .map((alt) => ({ transcript: stripPrefix(alt.transcript, base).trim(), confidence: alt.confidence }))
+      .filter((alt) => alt.transcript);
+    if (alternatives.length === 0) return;
+
+    if (trial.firstResultAt === null) trial.firstResultAt = r.at;
+    trial.lastUpdateAt = r.at;
+    trial.alternatives = alternatives;
+    if (r.isFinal) {
+      trial.finalAt = r.at;
+      finishTrial('final');
+    }
+  }
+
+  function scheduleCheck() {
+    trial.timerId = setTimeout(checkTrial, CONFIG.CHECK_INTERVAL_MS);
+  }
+
+  function checkTrial() {
+    if (!trial) return;
+    const now = performance.now();
+    const settled = trial.lastUpdateAt !== null
+      && (now - trial.lastUpdateAt) / 1000 >= CONFIG.SETTLE_AFTER_LAST_INTERIM_SEC;
+    if (settled) { finishTrial('interim-settled'); return; }
+    if ((now - trial.t0) / 1000 >= CONFIG.TRIAL_TIMEOUT_SEC) { finishTrial('timeout'); return; }
+    scheduleCheck();
+  }
+
+  function finishTrial(reason) {
+    if (!trial) return;
+    clearTimeout(trial.timerId);
+    const finished = trial;
+    trial = null;
+    ui.startButton.disabled = false;
+    logger.write('trial', `終了 理由=${reason}`);
+    renderResult(finished, reason);
+  }
+
+  function abortTrial(message) {
+    if (!trial) return;
+    clearTimeout(trial.timerId);
+    trial = null;
+    ui.startButton.disabled = false;
+    showStage('ちゅうだん', message);
+    ui.resultBody.replaceChildren(makeRow('', message, 'ng'));
+    logger.write('trial', '中断');
+  }
+
+  // ===== 結果の表示 =====
+  function renderResult(t, reason) {
+    const secFromT0 = (at) => (at === null ? null : (at - t.t0) / 1000);
+    const firstSec = secFromT0(t.firstResultAt);
+    const finalSec = secFromT0(t.finalAt);
+    const speechSec = secFromT0(t.speechStartAt);
+    const limit = CONFIG.LIMIT_SEC + CONFIG.RECOGNITION_GRACE_SEC;
+
+    let timing;
+    if (firstSec === null) timing = ['声が届きませんでした', 'ng'];
+    else if (firstSec <= limit) timing = [`まにあった（基準 ${limit.toFixed(1)}秒）`, 'ok'];
+    else timing = [`おそい（基準 ${limit.toFixed(1)}秒）`, 'warn'];
+
+    const transcripts = t.alternatives.map((alt) => alt.transcript);
+    const judgement = KukuJudge.judgeAlternatives(transcripts, t.a, t.b, t.reading);
+    const ruleLabel = KukuJudge.RULE_LABELS[judgement.rule];
+
+    const rows = [
+      ['式', `${t.a}×${t.b}＝${t.a * t.b}`, ''],
+      ['正しい読み方', t.reading, ''],
+      ['言い始め（最初の途中結果まで）', formatSec(firstSec), ''],
+      ['音の検出（speechstart）', speechSec === null ? '届かず（iPad では出ないことがあります）' : formatSec(speechSec), ''],
+      ['1秒の判定', timing[0], timing[1]],
+      ['確定まで', finalSec === null ? `確定なし（${END_REASON_LABELS[reason]}）` : formatSec(finalSec), ''],
+      ['聞き取った文字', transcripts[0] || 'なし', ''],
+      ['ほかの候補', transcripts.slice(1).join(' / ') || 'なし', ''],
+      ['数字に直すと', judgement.numbers.join(', ') || 'なし', ''],
+      ['読み方の判定（試作）', judgement.ok ? `○ ${ruleLabel}` : `× ${ruleLabel}`, judgement.ok ? 'ok' : 'ng'],
+    ];
+    ui.resultBody.replaceChildren(...rows.map(([label, value, cls]) => makeRow(label, value, cls)));
+    logger.write('result', `${t.a}x${t.b} first=${formatSec(firstSec)} speech=${formatSec(speechSec)} final=${formatSec(finalSec)} text="${transcripts[0] || ''}" judge=${judgement.rule}`);
+  }
+
+  function addHeard(text) {
+    const li = document.createElement('li');
+    li.textContent = `${new Date().toLocaleTimeString('ja-JP')}  ${text}`;
+    ui.heardList.prepend(li);
+    while (ui.heardList.children.length > CONFIG.HEARD_LIST_MAX) {
+      ui.heardList.lastElementChild.remove();
+    }
+  }
+
+  function updateCounters() {
+    const stats = session ? session.stats : { startCount: 0, restartCount: 0 };
+    ui.counters.textContent = `マイクを開いた回数 ${stats.startCount}回 ／ 自動で聞き直した回数 ${stats.restartCount}回 ／ エラー ${errorCount}回`;
+  }
+
+  function showStage(main, sub) {
+    ui.stageMain.textContent = main;
+    ui.stageSub.textContent = sub;
+  }
+
+  // ===== ログ =====
+  function createLogger(area) {
+    const origin = performance.now();
+    const lines = [];
+    return {
+      write(tag, text) {
+        const t = ((performance.now() - origin) / 1000).toFixed(2);
+        lines.push(`[${t}s] ${tag} ${text}`);
+        area.value = lines.join('\n');
+        area.scrollTop = area.scrollHeight;
+      },
+      text() { return lines.join('\n'); },
+      clear() { lines.length = 0; area.value = ''; },
+    };
+  }
+
+  async function copyLog() {
+    const text = logger.text();
+    try {
+      await navigator.clipboard.writeText(text);
+      ui.copyStatus.textContent = 'コピーしました';
+    } catch (err) {
+      ui.logArea.focus();
+      ui.logArea.select();
+      const copied = document.execCommand && document.execCommand('copy');
+      ui.copyStatus.textContent = copied ? 'コピーしました' : 'コピーできませんでした。ログを長押しして選んでください';
+    }
+  }
+
+  // ===== 小さな道具 =====
+  function makeRow(label, value, cls) {
+    const tr = document.createElement('tr');
+    if (label) {
+      const th = document.createElement('th');
+      th.textContent = label;
+      tr.appendChild(th);
+    }
+    const td = document.createElement('td');
+    td.textContent = value;
+    if (cls) td.className = cls;
+    tr.appendChild(td);
+    return tr;
+  }
+
+  function stripPrefix(text, prefix) {
+    return prefix && text.startsWith(prefix) ? text.slice(prefix.length) : text;
+  }
+
+  function formatSec(sec) {
+    return sec === null ? '—' : `${sec.toFixed(2)}秒`;
+  }
+
+  function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+})();
+</script>
+</body>
+</html>
