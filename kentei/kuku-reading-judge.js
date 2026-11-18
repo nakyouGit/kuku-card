@@ -46,6 +46,14 @@
     { from: 'にんが', to: 'にが' },
   ]);
 
+  // 答えの読み方（言い終わりの数を見分けるため。さ・は・ぱ などの言い出しの形は入れない）
+  const ANSWER_UNIT_READINGS = Object.freeze({
+    1: ['いち'], 2: ['に'], 3: ['さん'], 4: ['し', 'よん'], 5: ['ご'],
+    6: ['ろく'], 7: ['しち', 'なな'], 8: ['はち'], 9: ['く', 'きゅう'],
+  });
+  const ANSWER_MAX = 81;
+  const ANSWER_SUFFIXES = buildAnswerSuffixes();
+
   let tokenizer = null;
   let loadPromise = null;
 
@@ -183,6 +191,40 @@
     return [...out];
   }
 
+  /** 「よみ → 数」の一覧を、長い順に作る（じゅうに を に より先に照らすため）。 */
+  function buildAnswerSuffixes() {
+    const list = [];
+    for (let n = 1; n <= ANSWER_MAX; n += 1) {
+      const tens = Math.floor(n / 10);
+      const ones = n % 10;
+      const heads = tens === 0 ? [null] : (tens === 1 ? [''] : ANSWER_UNIT_READINGS[tens]);
+      const tails = ones === 0 ? [''] : ANSWER_UNIT_READINGS[ones];
+      heads.forEach((h) => tails.forEach((t) => {
+        list.push({ reading: h === null ? t : `${h}じゅう${t}`, value: n });
+      }));
+    }
+    return Object.freeze(list.sort((x, y) => y.reading.length - x.reading.length));
+  }
+
+  /** 言い終わりの数（いちばん長く当てはまる読み）を返す。数で終わっていなければ null。 */
+  function answerAtEnd(kana) {
+    const hit = findAnswerSuffix(kana);
+    return hit ? hit.value : null;
+  }
+
+  function findAnswerSuffix(kana) {
+    return ANSWER_SUFFIXES.find((item) => kana.endsWith(item.reading)) || null;
+  }
+
+  /**
+   * ちがう答えを言ったか。九九の読みは「が」を省くため、「にごじゅう」の終わりは「ごじゅう（50）」とも読める。
+   * そこで、言い終わりの読みが正しい読みの終わりと同じなら、ちがう答えとはみなさない。
+   */
+  function saidOtherAnswer(kana, expected, product) {
+    const hit = findAnswerSuffix(kana);
+    return hit !== null && hit.value !== product && !expected.endsWith(hit.reading);
+  }
+
   // ===== 判定 =====
   /**
    * @param {string[]} transcripts 認識の候補（一番目が本命）
@@ -215,7 +257,10 @@
           const d = editDistance(kana, v);
           if (!nearestWrong || d < nearestWrong.distance) nearestWrong = { reading: v, distance: d };
         }
-        const candidate = { transcript, kana, similarity: sim, distance, nearestWrong, hasDigits, answerWrong };
+        const candidate = {
+          transcript, kana, similarity: sim, distance, nearestWrong, hasDigits,
+          answerWrong: answerWrong || saidOtherAnswer(kana, expected, a * b),
+        };
         if (!best || candidate.similarity > best.similarity) best = candidate;
       }
     }
@@ -250,6 +295,7 @@
     wrongVariants,
     editDistance,
     similarity,
+    answerAtEnd,
     judgeReading,
   });
 })(window);

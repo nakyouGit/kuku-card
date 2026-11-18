@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>九九けんてい</title>
+<link rel="stylesheet" href="game.css">
+</head>
+<body>
+<main id="app">
+
+  <!-- はじめの画面 -->
+  <section id="titleScreen" class="screen">
+    <h1 class="title">九九けんてい</h1>
+    <p class="lead">しきが でたら、すぐに こえに だして よもう！</p>
+
+    <h2 class="label">だんを えらんでね</h2>
+    <div id="danButtons" class="dan-grid"></div>
+
+    <h2 class="label">じゅんばんを えらんでね</h2>
+    <div id="modeButtons" class="mode-row"></div>
+
+    <label class="hint-toggle"><input type="checkbox" id="hintToggle"> よみかたを みながら れんしゅう</label>
+
+    <button type="button" id="startButton" class="big-button" disabled>スタート</button>
+    <p id="readyState" class="status">じゅんびちゅう…</p>
+  </section>
+
+  <!-- あそぶ画面 -->
+  <section id="playScreen" class="screen" hidden>
+    <div class="play-head">
+      <span id="playTitle"></span>
+      <button type="button" id="quitButton" class="small-button">やめる</button>
+    </div>
+    <div id="progress" class="progress"></div>
+    <div id="card" class="card">
+      <div id="cardMain" class="card-main"></div>
+      <div id="cardSub" class="card-sub"></div>
+    </div>
+    <div class="timer"><div id="timerBar" class="timer-bar"></div></div>
+    <div id="pausePanel" class="pause" hidden>
+      <p id="pauseMessage">マイクが とまったよ</p>
+      <button type="button" id="resumeButton" class="big-button">つづける</button>
+    </div>
+  </section>
+
+  <!-- けっかの画面 -->
+  <section id="resultScreen" class="screen" hidden>
+    <h1 id="resultTitle" class="result-title"></h1>
+    <p id="resultScore" class="result-score"></p>
+    <p id="resultNote" class="status"></p>
+    <ul id="resultList" class="result-list"></ul>
+    <div class="result-buttons">
+      <button type="button" id="retryButton" class="big-button">もういちど</button>
+      <button type="button" id="practiceMissedButton" class="big-button sub">できなかった しきを れんしゅう</button>
+      <button type="button" id="backButton" class="big-button sub">だんを えらぶ</button>
+    </div>
+  </section>
+
+</main>
+
+<script src="kuku-readings.js"></script>
+<script src="kuku-judge.js"></script>
+<script src="speech-session.js"></script>
+<script src="vendor/kuromoji/kuromoji.js"></script>
+<script src="kuku-reading-judge.js"></script>
+<script src="dictionary-loader.js"></script>
+<script src="game-config.js"></script>
+<script src="game-questions.js"></script>
+<script src="game-records.js"></script>
+<script src="game-trial.js"></script>
+<script src="game-main.js"></script>
+</body>
+</html>

@@ -39,6 +39,9 @@ test('読み方の判定（2026-11-19 のログと、よくある読み違い）
   }
   // 答えの数がちがう、別の式を言った時は ×
   assert.equal(judge('さんしじゅうに', 7, 9), 'ng');
+  assert.equal(judge('にさんがはち', 2, 3), 'ng');   // 答えを読みで言いまちがえた
+  assert.equal(judge('いんにがじゅうに', 1, 2), 'ng'); // 「に」で終わっても、答えは 12
+  assert.equal(judge('くくはちじゅういち', 9, 9), 'ok');
   assert.equal(judge('3×6=19', 3, 6), 'ng');
   // 81問すべて、正しい読みそのものは ○
   for (let a = 1; a <= 9; a += 1) {
@@ -46,6 +49,13 @@ test('読み方の判定（2026-11-19 のログと、よくある読み違い）
       assert.equal(judge(KukuReadings.getReading(a, b), a, b), 'ok', `${a}x${b}`);
     }
   }
+});
+
+test('言い終わりの数', () => {
+  assert.equal(KukuReadingJudge.answerAtEnd('にさんがろく'), 6);
+  assert.equal(KukuReadingJudge.answerAtEnd('いんにがじゅうに'), 12);
+  assert.equal(KukuReadingJudge.answerAtEnd('しくさんじゅうろく'), 36);
+  assert.equal(KukuReadingJudge.answerAtEnd('いんにあ'), null);
 });
 
 test('よくある読み違いの候補', () => {

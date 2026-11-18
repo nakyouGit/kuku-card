@@ -42,10 +42,14 @@ npm test
 ES モジュールのため、`index.html` を直接開くのではなく、公開先かローカルのサーバー（`python3 -m http.server`）で開く。
 
 ## 九九検定（作成中）
-- `kentei/` に、音声入力で九九の読み方を判定する九九検定ゲームを作っている。今はマイクテスト（`kentei/mic-test.html`）だけ。
+- `kentei/index.html` は、児童が自分で練習する九九検定ゲーム。段（1〜9）と、じゅんばんどおり・ぎゃく・ランダムを選び、式が出たら1秒以内に声で読む。
+  - 1問ごとに ○（はやい）・△（おそい）・×（読み違い・聞こえない）を出し、△と×には正しい読み方を見せる。
+  - 9問すべて ○ で「ごうかく」。段とモードごとに★が付く（端末に保存）。できなかった式だけの練習、読み方を見ながらの練習（記録は残らない）もある。
+  - マイクが止まった時は「つづける」で同じ問題からやり直す。
+- `kentei/mic-test.html` は、端末で音声認識が使えるかを確かめるマイクテスト。
 - iPad の Safari で開く（ホーム画面のアイコンからは開かない）。
 - 1秒の判定は「音の検出（speechstart）」の時刻で測る。マイクは毎問カウントダウンの間に開き直す。
-- 児童が自分で練習するためのもの。読み方の判定は ○ か ×。音声認識の結果を辞書（kuromoji）で読みがなに直し、よくある読み違い（なな・きゅう・よん・はちはち など）の方が近い時、答えの数がちがう時、正しい読みから遠い（別の式を言った）時だけ × にする。聞き取りが多少あいまいでも、明確な読み違いがなければ ○。線引きは `kentei/kuku-reading-judge.js` の SETTINGS。
+- 児童が自分で練習するためのもの。読み方の判定は ○ か ×。音声認識の結果を辞書（kuromoji）で読みがなに直し、よくある読み違い（なな・きゅう・よん・はちはち など）の方が近い時、答えの数がちがう時（数字でも読みでも）、正しい読みから遠い（別の式を言った）時だけ × にする。聞き取りが多少あいまいでも、明確な読み違いがなければ ○。線引きは `kentei/kuku-reading-judge.js` の SETTINGS。
 - 辞書（約18MB、`kentei/vendor/kuromoji/`、Apache License 2.0）は `kentei/sw.js` で端末に残し、2回目からは通信しない。
 
 | ファイル | 役割 |
@@ -55,6 +59,12 @@ ES モジュールのため、`index.html` を直接開くのではなく、公�
 | `kentei/kuku-reading-judge.js` | 読み方の判定（○・×） |
 | `kentei/speech-session.js` | 音声認識の包み（自動で聞き直す） |
 | `kentei/sw.js` | 辞書を端末に残す |
+| `kentei/dictionary-loader.js` | 辞書の読み込み |
+| `kentei/game-config.js` | ゲームの設定値（制限時間・待ち時間など） |
+| `kentei/game-questions.js` | 問題の並び |
+| `kentei/game-records.js` | ごうかくの記録 |
+| `kentei/game-trial.js` | 1問ぶんの出題・聞き取り・判定 |
+| `kentei/game-main.js` / `kentei/game.css` / `kentei/index.html` | ゲームの画面と進行 |
 | `kentei/mic-test.html` | マイクテスト |
 
 試験の一部（読み方の判定）は `npm install` で kuromoji を入れてから `npm test`。
