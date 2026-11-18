@@ -15,6 +15,7 @@
     restartDelayMs: 50,
     restartLoopWindowMs: 3000,
     restartLoopLimit: 5,
+    startTimeoutMs: 2000, // start() のあと、この間に開始の知らせが来なければ失敗とみなす（iPad は黙って開かないことがある）
   });
 
   const FATAL_ERRORS = new Set([
@@ -51,6 +52,7 @@
       this._recentRestarts = [];
       this._startCount = 0;
       this._restartCount = 0;
+      this._startWatchdog = null;
     }
 
     static isSupported() {
@@ -77,6 +79,7 @@
     stop() {
       this._wanted = false;
       clearTimeout(this._restartTimer);
+      clearTimeout(this._startWatchdog);
       this._disposeCurrent();
       this._emitEvent('stopped-by-user');
       this._handlers.state(STATES.STOPPED);
@@ -108,6 +111,10 @@
       PASSIVE_EVENTS.forEach((name) => {
         recognition[`on${name}`] = () => this._emitEvent(name);
       });
+      recognition.onstart = () => {
+        clearTimeout(this._startWatchdog);
+        this._emitEvent('start');
+      };
       recognition.onresult = (event) => this._handleResult(event);
       recognition.onerror = (event) => this._handleError(event);
       recognition.onend = () => this._handleEnd(recognition);
@@ -116,6 +123,13 @@
       try {
         recognition.start();
         this._startCount += 1;
+        clearTimeout(this._startWatchdog);
+        this._startWatchdog = setTimeout(() => {
+          if (this._recognition === recognition && this._wanted) {
+            this._disposeCurrent();
+            this._fail('start-timeout');
+          }
+        }, this._options.startTimeoutMs);
       } catch (err) {
         this._fail(`start-failed: ${(err && err.message) || err}`);
       }
@@ -189,6 +203,7 @@
     _fail(code) {
       this._wanted = false;
       clearTimeout(this._restartTimer);
+      clearTimeout(this._startWatchdog);
       this._recognition = null;
       this._handlers.error({ code, message: '', at: performance.now() });
       this._handlers.state(STATES.STOPPED);

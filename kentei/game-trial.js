@@ -119,22 +119,28 @@
         const trial = {
           question, resolve, reject,
           t0: null, firstResultAt: null, lastUpdateAt: null, speechStartAt: null,
-          alternatives: [], baseline: new Map(), timerId: null, warmupId: null,
+          alternatives: [], baseline: new Map(), timerId: null, warmupId: null, waitingStart: false,
         };
         this._trial = trial;
         const now = performance.now();
         if (this._reopen && now - this._micStartedAt >= this._config.REOPEN_MIN_AGE_MS) {
           this._lastReopenAt = now;
+          trial.waitingStart = true; // マイクが開いたと分かってから式を出す
           this._session.restartNow();
         }
-        trial.warmupId = setTimeout(() => {
+        const showWhenReady = () => {
           if (this._trial !== trial) return;
+          if (trial.waitingStart) {
+            trial.warmupId = setTimeout(showWhenReady, this._config.CHECK_INTERVAL_MS);
+            return;
+          }
           trial.baseline = new Map(this._latest);
           trial.t0 = performance.now();
           onShow();
           this._log('trial', `show ${question.a}x${question.b}`);
           this._scheduleCheck(trial);
-        }, this._config.MIC_WARMUP_MS);
+        };
+        trial.warmupId = setTimeout(showWhenReady, this._config.MIC_WARMUP_MS);
       });
     }
 
@@ -152,7 +158,10 @@
       this._log('event', ev.name);
       if (ev.name === 'start') {
         this._latest.clear();
-        if (this._trial) this._trial.baseline = new Map();
+        if (this._trial) {
+          this._trial.baseline = new Map();
+          this._trial.waitingStart = false;
+        }
       }
       const trial = this._trial;
       const isSpeech = ev.name === 'speechstart' || ev.name === 'soundstart';
