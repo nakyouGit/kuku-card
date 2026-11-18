@@ -100,7 +100,7 @@
   const CONFIG = Object.freeze({
     LANG: 'ja-JP',
     COUNTDOWN_SEC: 3,
-    LIMIT_SEC: 1.0,                          // 言い始めの制限時間
+    LIMIT_SEC: 2.0,                          // 言い始めの制限時間（ゲームと同じ）
     TIMING_GRACE_SEC: 0.1,                   // 音の検出のずれを見込んだ猶予
     INTERIM_LAG_SEC: 0.55,                   // 音の検出から最初の文字までの遅れ（2026-11-19 のログの平均）
     DICT_PATH: 'vendor/kuromoji/dict/',
@@ -425,7 +425,7 @@
       ['正しい読み方', t.reading, ''],
       ['言い始め（最初の途中結果まで）', formatSec(firstSec), ''],
       ['音の検出（speechstart）', speechSec === null ? '届かず（iPad では出ないことがあります）' : formatSec(speechSec), ''],
-      ['1秒の判定', timing[0], timing[1]],
+      ['制限時間の判定', timing[0], timing[1]],
       ['確定まで', finalSec === null ? `確定なし（${END_REASON_LABELS[reason]}）` : formatSec(finalSec), ''],
       ['聞き取った文字', transcripts[0] || 'なし', ''],
       ['ほかの候補', transcripts.slice(1).join(' / ') || 'なし', ''],
