@@ -50,7 +50,7 @@
     </div>
     <div class="row">
       <label><input type="checkbox" id="showReading" checked> 読み方を表示する</label>
-      <label><input type="checkbox" id="reopenEachTrial"> テストのたびにマイクを開き直す（比べる用）</label>
+      <label><input type="checkbox" id="reopenEachTrial" checked> テストのたびにマイクを開き直す（音の検出で正しく測れる）</label>
     </div>
     <div id="stage">
       <div id="stageMain">—</div>
@@ -60,6 +60,7 @@
       <button type="button" id="startButton">テスト開始</button>
       <button type="button" id="stopMicButton" class="sub" disabled>マイクを止める</button>
     </div>
+    <p class="note" id="dictState">読みがなの辞書: 読み込み中…</p>
     <p class="note" id="micState">マイク: 止まっています</p>
     <p class="note" id="counters"></p>
   </section>
@@ -67,6 +68,12 @@
   <section>
     <h2>3. 結果</h2>
     <table><tbody id="resultBody"><tr><td>まだテストしていません</td></tr></tbody></table>
+    <div class="row" style="margin-top:12px">
+      <span class="note">先生の判定（線引きの調整に使います）:</span>
+      <button type="button" id="teacherOkButton" class="sub" disabled>○ 正しい</button>
+      <button type="button" id="teacherNgButton" class="sub" disabled>× ちがう</button>
+      <span id="teacherStatus" class="note"></span>
+    </div>
   </section>
 
   <section>
@@ -89,6 +96,8 @@
 <script src="kuku-readings.js"></script>
 <script src="kuku-judge.js"></script>
 <script src="speech-session.js"></script>
+<script src="vendor/kuromoji/kuromoji.js"></script>
+<script src="kuku-reading-judge.js"></script>
 <script>
 (function () {
   'use strict';
@@ -98,7 +107,11 @@
     LANG: 'ja-JP',
     COUNTDOWN_SEC: 3,
     LIMIT_SEC: 1.0,                          // 言い始めの制限時間
-    RECOGNITION_GRACE_SEC: 0.5,              // iPad の認識の遅れを見込んだ猶予
+    TIMING_GRACE_SEC: 0.1,                   // 音の検出のずれを見込んだ猶予
+    INTERIM_LAG_SEC: 0.55,                   // 音の検出から最初の文字までの遅れ（2026-11-19 のログの平均）
+    DICT_PATH: 'vendor/kuromoji/dict/',
+    SERVICE_WORKER_PATH: 'sw.js',
+    SERVICE_WORKER_WAIT_MS: 3000,
     TRIAL_TIMEOUT_SEC: 4.0,                  // 1回のテストを打ち切るまで
     SETTLE_AFTER_LAST_INTERIM_SEC: 1.2,      // 確定が来ない時、途中結果が止まってから待つ秒数
     CHECK_INTERVAL_MS: 100,
@@ -142,6 +155,10 @@
     copyLogButton: $('copyLogButton'),
     clearLogButton: $('clearLogButton'),
     copyStatus: $('copyStatus'),
+    dictState: $('dictState'),
+    teacherOkButton: $('teacherOkButton'),
+    teacherNgButton: $('teacherNgButton'),
+    teacherStatus: $('teacherStatus'),
   };
 
   // ===== 状態 =====
@@ -150,11 +167,13 @@
   let session = null;
   let trial = null;
   let errorCount = 0;
+  let lastJudged = null; // 先生の判定を付ける相手（直前のテスト）
 
   buildSelectors();
   renderEnvironment();
   bindEvents();
   updateCounters();
+  prepareDictionary();
 
   // ===== 初期化 =====
   function buildSelectors() {
@@ -179,7 +198,7 @@
     ui.envTable.replaceChildren(...rows.map(([label, [value, cls]]) => makeRow(label, value, cls)));
     logger.write('env', `supported=${supported} secure=${window.isSecureContext} standalone=${standalone}`);
     logger.write('env', navigator.userAgent);
-    logger.write('env', `limit=${CONFIG.LIMIT_SEC}s grace=${CONFIG.RECOGNITION_GRACE_SEC}s`);
+    logger.write('env', `limit=${CONFIG.LIMIT_SEC}s grace=${CONFIG.TIMING_GRACE_SEC}s lag=${CONFIG.INTERIM_LAG_SEC}s`);
   }
 
   function bindEvents() {
@@ -187,6 +206,52 @@
     ui.stopMicButton.addEventListener('click', () => { if (session) session.stop(); });
     ui.copyLogButton.addEventListener('click', copyLog);
     ui.clearLogButton.addEventListener('click', () => { logger.clear(); ui.copyStatus.textContent = ''; });
+    ui.teacherOkButton.addEventListener('click', () => recordTeacherVerdict('ok'));
+    ui.teacherNgButton.addEventListener('click', () => recordTeacherVerdict('ng'));
+  }
+
+  // ===== 読みがなの辞書 =====
+  async function prepareDictionary() {
+    ui.startButton.disabled = true;
+    const startedAt = performance.now();
+    await registerServiceWorker();
+    try {
+      await KukuReadingJudge.load(CONFIG.DICT_PATH);
+      const sec = ((performance.now() - startedAt) / 1000).toFixed(1);
+      ui.dictState.textContent = `読みがなの辞書: 準備できました（${sec}秒）`;
+      logger.write('dict', `loaded ${sec}s`);
+    } catch (err) {
+      ui.dictState.textContent = '読みがなの辞書: 読み込めませんでした。読み方の判定は「？」になります。';
+      logger.write('dict', `failed ${(err && err.message) || err}`);
+    }
+    ui.startButton.disabled = false;
+  }
+
+  /** 辞書を iPad に残す仕組みを入れる。使えない時や時間がかかる時は、そのまま進める。 */
+  async function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) {
+      logger.write('sw', 'unsupported');
+      return;
+    }
+    try {
+      await navigator.serviceWorker.register(CONFIG.SERVICE_WORKER_PATH);
+      await withTimeout(navigator.serviceWorker.ready, CONFIG.SERVICE_WORKER_WAIT_MS);
+      if (!navigator.serviceWorker.controller) {
+        await withTimeout(new Promise((resolve) => {
+          navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+        }), CONFIG.SERVICE_WORKER_WAIT_MS);
+      }
+      logger.write('sw', navigator.serviceWorker.controller ? 'active' : 'not-controlling');
+    } catch (err) {
+      logger.write('sw', `failed ${(err && err.message) || err}`);
+    }
+  }
+
+  function recordTeacherVerdict(verdict) {
+    if (!lastJudged) return;
+    const label = verdict === 'ok' ? '○' : '×';
+    logger.write('teacher', `${lastJudged.a}x${lastJudged.b} teacher=${verdict} machine=${lastJudged.verdict} kana="${lastJudged.kana}" sim=${lastJudged.similarity}`);
+    ui.teacherStatus.textContent = `先生の判定 ${label} を記録しました`;
   }
 
   // ===== 音声認識 =====
@@ -272,6 +337,10 @@
     trial = current;
     ui.startButton.disabled = true;
     ui.resultBody.replaceChildren(makeRow('', 'テスト中…', ''));
+    lastJudged = null;
+    ui.teacherOkButton.disabled = true;
+    ui.teacherNgButton.disabled = true;
+    ui.teacherStatus.textContent = '';
     ui.micState.textContent = 'マイク: 準備中';
 
     ensureSession(); // ボタンを押した処理の中で開く（iPad の決まり）
@@ -347,16 +416,30 @@
     const firstSec = secFromT0(t.firstResultAt);
     const finalSec = secFromT0(t.finalAt);
     const speechSec = secFromT0(t.speechStartAt);
-    const limit = CONFIG.LIMIT_SEC + CONFIG.RECOGNITION_GRACE_SEC;
+    const limit = CONFIG.LIMIT_SEC + CONFIG.TIMING_GRACE_SEC;
+
+    // 音の検出があればそれで測る。無ければ最初の文字の時刻から遅れの分を引く
+    let startSec = null;
+    let startSource = '';
+    if (speechSec !== null) {
+      startSec = speechSec;
+      startSource = '音の検出';
+    } else if (firstSec !== null) {
+      startSec = Math.max(0, firstSec - CONFIG.INTERIM_LAG_SEC);
+      startSource = `最初の文字から${CONFIG.INTERIM_LAG_SEC}秒引いた値`;
+    }
 
     let timing;
-    if (firstSec === null) timing = ['声が届きませんでした', 'ng'];
-    else if (firstSec <= limit) timing = [`まにあった（基準 ${limit.toFixed(1)}秒）`, 'ok'];
-    else timing = [`おそい（基準 ${limit.toFixed(1)}秒）`, 'warn'];
+    if (startSec === null) timing = ['声が届きませんでした', 'ng'];
+    else if (startSec <= limit) timing = [`まにあった ${formatSec(startSec)}（${startSource}、基準 ${limit.toFixed(1)}秒）`, 'ok'];
+    else timing = [`おそい ${formatSec(startSec)}（${startSource}、基準 ${limit.toFixed(1)}秒）`, 'warn'];
 
     const transcripts = t.alternatives.map((alt) => alt.transcript);
     const judgement = KukuJudge.judgeAlternatives(transcripts, t.a, t.b, t.reading);
     const ruleLabel = KukuJudge.RULE_LABELS[judgement.rule];
+    const reading = KukuReadingJudge.judgeReading(transcripts, t.a, t.b, t.reading);
+    const verdictMarks = { ok: ['○', 'ok'], ng: ['×', 'ng'], unknown: ['？', 'warn'] };
+    const [mark, markClass] = verdictMarks[reading.verdict];
 
     const rows = [
       ['式', `${t.a}×${t.b}＝${t.a * t.b}`, ''],
@@ -367,11 +450,18 @@
       ['確定まで', finalSec === null ? `確定なし（${END_REASON_LABELS[reason]}）` : formatSec(finalSec), ''],
       ['聞き取った文字', transcripts[0] || 'なし', ''],
       ['ほかの候補', transcripts.slice(1).join(' / ') || 'なし', ''],
-      ['数字に直すと', judgement.numbers.join(', ') || 'なし', ''],
-      ['読み方の判定（試作）', judgement.ok ? `○ ${ruleLabel}` : `× ${ruleLabel}`, judgement.ok ? 'ok' : 'ng'],
+      ['読みがなに直すと', reading.kana || 'なし', ''],
+      ['正しい読みとの近さ', reading.similarity === null ? '—' : `${Math.round(reading.similarity * 100)}%`, ''],
+      ['近い読み違い', reading.nearestWrong || 'なし', ''],
+      ['読み方の判定', `${mark} ${reading.reason}`, markClass],
+      ['答えの判定（数字）', judgement.ok ? `○ ${ruleLabel}` : `× ${ruleLabel}`, judgement.ok ? 'ok' : 'ng'],
     ];
     ui.resultBody.replaceChildren(...rows.map(([label, value, cls]) => makeRow(label, value, cls)));
-    logger.write('result', `${t.a}x${t.b} first=${formatSec(firstSec)} speech=${formatSec(speechSec)} final=${formatSec(finalSec)} text="${transcripts[0] || ''}" judge=${judgement.rule}`);
+    logger.write('result', `${t.a}x${t.b} first=${formatSec(firstSec)} speech=${formatSec(speechSec)} start=${formatSec(startSec)} final=${formatSec(finalSec)} text="${transcripts[0] || ''}" kana="${reading.kana}" sim=${reading.similarity === null ? '-' : reading.similarity.toFixed(2)} reading=${reading.verdict} answer=${judgement.rule}`);
+    lastJudged = { a: t.a, b: t.b, verdict: reading.verdict, kana: reading.kana, similarity: reading.similarity === null ? '-' : reading.similarity.toFixed(2) };
+    ui.teacherOkButton.disabled = false;
+    ui.teacherNgButton.disabled = false;
+    ui.teacherStatus.textContent = '';
   }
 
   function addHeard(text) {
@@ -447,6 +537,10 @@
 
   function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function withTimeout(promise, ms) {
+    return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
   }
 
   function sleep(ms) {
