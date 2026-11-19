@@ -1,7 +1,7 @@
 /**
  * game-main.js
  * 九九けんてい（フラッシュ）の画面の切り替えと進行。
- * 式を1つずつ FLASH_SEC 秒だけ出し、子どもは声に出して読む。判定はしない。
+ * 式を1つずつ、選んだはやさ（SPEEDS）の秒数だけ出し、子どもは声に出して読む。判定はしない。
  * 画面に出す言葉は、九九のほかはひらがなにする。
  */
 (function () {
@@ -19,6 +19,7 @@
     stoppedMessage: $('stoppedMessage'),
     danButtons: $('danButtons'),
     modeButtons: $('modeButtons'),
+    speedButtons: $('speedButtons'),
     hintToggle: $('hintToggle'),
     startButton: $('startButton'),
     playTitle: $('playTitle'),
@@ -38,14 +39,14 @@
   const selection = loadSelection();
   let currentRun = null;
   let lastRun = null;
-  let starting = false;
+  let pendingRun = null; // スタートを押して、止まっていないかを確かめている間の回
 
   init();
 
   function init() {
-    ui.timerBar.style.setProperty('--limit', `${C.FLASH_SEC}s`);
     buildDanButtons();
     buildModeButtons();
+    buildSpeedButtons();
     ui.hintToggle.checked = selection.hint;
     bindEvents();
     refreshSelection();
@@ -56,14 +57,16 @@
   }
 
   function bindEvents() {
-    ui.startButton.addEventListener('click', () => startRun(selection.dan, selection.mode, selection.hint));
+    ui.startButton.addEventListener('click', () => {
+      startRun({ dan: selection.dan, mode: selection.mode, speedSec: selection.speedSec, showReading: selection.hint });
+    });
     ui.hintToggle.addEventListener('change', () => {
       selection.hint = ui.hintToggle.checked;
       saveSelection();
     });
     ui.quitButton.addEventListener('click', quitRun);
     ui.retryButton.addEventListener('click', () => {
-      if (lastRun) startRun(lastRun.dan, lastRun.mode, lastRun.showReading);
+      if (lastRun) startRun(lastRun.options);
     });
     ui.backButton.addEventListener('click', () => {
       refreshSelection();
@@ -81,6 +84,7 @@
       ui.stoppedMessage.textContent = message;
       ui.stoppedMessage.hidden = message === '';
       currentRun = null;
+      pendingRun = null;
       if (!ui.screens.result.hidden) return; // こたえあわせを見ている間は、そのままにする
       showScreen('stopped');
     } else if (!ui.screens.stopped.hidden) {
@@ -133,6 +137,22 @@
     });
   }
 
+  function buildSpeedButtons() {
+    C.SPEEDS.forEach((speed) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'mode-button';
+      button.dataset.speed = String(speed.sec);
+      button.textContent = speed.label;
+      button.addEventListener('click', () => {
+        selection.speedSec = speed.sec;
+        saveSelection();
+        refreshSelection();
+      });
+      ui.speedButtons.appendChild(button);
+    });
+  }
+
   function refreshSelection() {
     ui.danButtons.querySelectorAll('.dan-button').forEach((button) => {
       button.classList.toggle('selected', Number(button.dataset.dan) === selection.dan);
@@ -140,21 +160,30 @@
     ui.modeButtons.querySelectorAll('.mode-button').forEach((button) => {
       button.classList.toggle('selected', button.dataset.mode === selection.mode);
     });
+    ui.speedButtons.querySelectorAll('.mode-button').forEach((button) => {
+      button.classList.toggle('selected', Number(button.dataset.speed) === selection.speedSec);
+    });
   }
 
   // ===== フラッシュ =====
-  async function startRun(dan, mode, showReading) {
-    if (starting || currentRun) return; // 続けて押された時に、2回始まらないように
-    starting = true;
-    const allowed = await confirmNotStopped();
-    starting = false;
-    if (!allowed) return;
-
-    const run = { dan, mode, showReading, questions: Q.buildQuestions(dan, mode), index: 0 };
-    currentRun = run;
-    ui.playTitle.textContent = `${dan}のだん ・ ${modeLabel(mode)}`;
-    showScreen('play');
+  /** @param {{dan:number, mode:string, speedSec:number, showReading:boolean}} options */
+  async function startRun(options) {
+    if (pendingRun || currentRun) return; // 続けて押された時に、2回始まらないように
+    const run = { options, questions: Q.buildQuestions(options.dan, options.mode), index: 0 };
+    pendingRun = run;
+    // 確かめている間も、押したことが分かるように先に画面を切り替える
+    ui.timerBar.style.setProperty('--limit', `${options.speedSec}s`);
+    ui.playTitle.textContent = `${options.dan}のだん ・ ${modeLabel(options.mode)} ・ ${speedLabel(options.speedSec)}`;
+    resetTimer();
+    setCard('', 'じゅんび してね', 'countdown');
     renderProgress(run);
+    showScreen('play');
+    const allowed = await confirmNotStopped();
+    if (pendingRun !== run) return; // 確かめている間に「やめる」が押された
+    pendingRun = null;
+    if (!allowed) return; // 止まっていれば「おやすみ」の画面になっている
+
+    currentRun = run;
     playLoop(run);
   }
 
@@ -167,10 +196,10 @@
 
     while (run.index < run.questions.length) {
       const q = run.questions[run.index];
-      setCard(`${q.a}×${q.b}`, run.showReading ? q.reading : '', '');
+      setCard(`${q.a}×${q.b}`, run.options.showReading ? q.reading : '', '');
       renderProgress(run);
       startTimer();
-      await sleep(C.FLASH_SEC * 1000);
+      await sleep(run.options.speedSec * 1000);
       if (currentRun !== run) return;
 
       run.index += 1;
@@ -184,6 +213,7 @@
 
   function quitRun() {
     currentRun = null;
+    pendingRun = null;
     resetTimer();
     refreshSelection();
     showScreen(isStopped() ? 'stopped' : 'title');
@@ -241,6 +271,11 @@
     ui.timerBar.classList.add('running');
   }
 
+  function speedLabel(sec) {
+    const speed = C.SPEEDS.find((s) => s.sec === sec);
+    return speed ? speed.label : `${sec}びょう`;
+  }
+
   function modeLabel(modeId) {
     const mode = C.MODES.find((m) => m.id === modeId);
     return mode ? mode.label : modeId;
@@ -260,13 +295,14 @@
   }
 
   function loadSelection() {
-    const fallback = { dan: C.DEFAULT_DAN, mode: C.DEFAULT_MODE, hint: false };
+    const fallback = { dan: C.DEFAULT_DAN, mode: C.DEFAULT_MODE, speedSec: C.DEFAULT_SPEED_SEC, hint: false };
     try {
       const saved = JSON.parse((storage && storage.getItem(C.SETTINGS_STORAGE_KEY)) || 'null');
       if (!saved) return fallback;
       return {
         dan: window.KukuReadings.isValidNumber(saved.dan) ? saved.dan : fallback.dan,
         mode: C.MODES.some((m) => m.id === saved.mode) ? saved.mode : fallback.mode,
+        speedSec: C.SPEEDS.some((s) => s.sec === saved.speedSec) ? saved.speedSec : fallback.speedSec,
         hint: saved.hint === true,
       };
     } catch (err) {

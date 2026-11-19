@@ -7,7 +7,13 @@
   'use strict';
 
   global.KukuGameConfig = Object.freeze({
-    FLASH_SEC: 1.0,            // 1つの式を出しておく時間
+    // 1つの式を出しておく時間（はじめの画面で選ぶ）
+    SPEEDS: Object.freeze([
+      Object.freeze({ sec: 1, label: '1びょう' }),
+      Object.freeze({ sec: 2, label: '2びょう' }),
+      Object.freeze({ sec: 3, label: '3びょう' }),
+    ]),
+    DEFAULT_SPEED_SEC: 1,
     FLASH_GAP_MS: 150,         // 式と式のあいだの空白（同じ見た目が続いても切り替わりが分かるように）
     START_COUNTDOWN_SEC: 3,
 

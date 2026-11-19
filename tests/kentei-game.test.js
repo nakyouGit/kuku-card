@@ -26,6 +26,8 @@ test('範囲外の段・不明なモードは例外', () => {
   assert.throws(() => Q.buildQuestions(2, 'zigzag'));
 });
 
-test('フラッシュは1秒', () => {
-  assert.equal(C.FLASH_SEC, 1.0);
+test('はやさは1・2・3秒から選べ、はじめは1秒', () => {
+  assert.deepEqual(Array.from(C.SPEEDS, (s) => s.sec), [1, 2, 3]);
+  assert.equal(C.DEFAULT_SPEED_SEC, 1);
+  assert.ok(C.SPEEDS.some((s) => s.sec === C.DEFAULT_SPEED_SEC));
 });

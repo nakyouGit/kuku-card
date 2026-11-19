@@ -44,15 +44,15 @@ npm test
 ES モジュールのため、`index.html` を直接開くのではなく、公開先かローカルのサーバー（`python3 -m http.server`）で開く。
 
 ## 九九けんてい（フラッシュ）
-- `kentei/index.html` は、児童が自分で練習する九九けんてい。段（1〜9）と、じゅんばんどおり・ぎゃく・ランダムを選ぶと、式が1秒ずつフラッシュで出る。子どもは声に出して読む（判定はしない）。終わると、9問の式・答え・読み方で こたえあわせ ができる。
-- 「よみかたも だす」にすると、式の下に読み方も出る。表示の秒数は `kentei/game-config.js` の FLASH_SEC。
+- `kentei/index.html` は、児童が自分で練習する九九けんてい。段（1〜9）と、じゅんばんどおり・ぎゃく・ランダムを選ぶと、式がフラッシュで出る（はやさは 1びょう・2びょう・3びょう から選ぶ）。子どもは声に出して読む（判定はしない）。終わると、9問の式・答え・読み方で こたえあわせ ができる。
+- 「よみかたも だす」にすると、式の下に読み方も出る。選べるはやさは `kentei/game-config.js` の SPEEDS。
 - 先生が止めると「おやすみ」の画面になる（20秒ごとと、スタートの時に確かめる。見張りは `kentei/game-stop.js`）。
 - 2026-11-19: はじめは音声入力で読み方を ○・× 判定する形で作ったが、iPad の Safari で音声入力が反応しなかったため、判定をやめてフラッシュにした。音声の判定の部品（`kuku-judge.js`・`kuku-reading-judge.js`・`speech-session.js`・`sw.js`・`vendor/kuromoji/`）は、マイクテスト（`kentei/mic-test.html`）でだけ使っている。
 
 | ファイル | 役割 |
 | --- | --- |
 | `kentei/kuku-readings.js` | 81問の読み方 |
-| `kentei/game-config.js` | 設定値（表示の秒数など） |
+| `kentei/game-config.js` | 設定値（選べるはやさなど） |
 | `kentei/game-questions.js` | 問題の並び |
 | `kentei/game-main.js` / `kentei/game.css` / `kentei/index.html` | 画面と進行 |
 | `kentei/game-stop.js` | 先生が止めたかの見張り |
