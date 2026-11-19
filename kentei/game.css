@@ -72,11 +72,6 @@ body {
 .card-main { font-size: 120px; font-weight: 700; line-height: 1.1; letter-spacing: 4px; }
 .card-sub { font-size: 30px; margin-top: 12px; min-height: 1.4em; text-align: center; }
 
-.timer { width: 100%; max-width: 640px; height: 18px; background: #eee; border-radius: 9px; overflow: hidden; }
-.timer-bar { height: 100%; width: 0; background: var(--main); }
-.timer-bar.running { width: 100%; animation: shrink var(--limit, 1s) linear forwards; }
-.timer-bar.stopped { animation-play-state: paused; }
-@keyframes shrink { from { width: 100%; } to { width: 0; } }
 
 .pause { display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 24px; }
 
@@ -97,3 +92,5 @@ body {
 .result-buttons { display: flex; flex-direction: column; gap: 12px; align-items: center; margin: 12px 0 24px; }
 .dot.done { background: var(--main); border-color: var(--main); }
 .card.countdown .card-main { color: #999; }
+.mode-button.master { border-color: #e0a800; background: #fff6d6; }
+.mode-button.master.selected { border-color: #b38600; background: #ffe58f; }

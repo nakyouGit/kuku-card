@@ -12,6 +12,7 @@
       Object.freeze({ sec: 1, label: '1びょう' }),
       Object.freeze({ sec: 2, label: '2びょう' }),
       Object.freeze({ sec: 3, label: '3びょう' }),
+      Object.freeze({ sec: 0.7, label: 'たつじん（0.7びょう）', shortLabel: 'たつじん', master: true }),
     ]),
     DEFAULT_SPEED_SEC: 1,
     FLASH_GAP_MS: 150,         // 式と式のあいだの空白（同じ見た目が続いても切り替わりが分かるように）

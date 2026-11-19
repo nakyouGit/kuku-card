@@ -28,7 +28,6 @@
     card: $('card'),
     cardMain: $('cardMain'),
     cardSub: $('cardSub'),
-    timerBar: $('timerBar'),
     resultList: $('resultList'),
     retryButton: $('retryButton'),
     backButton: $('backButton'),
@@ -141,7 +140,7 @@
     C.SPEEDS.forEach((speed) => {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'mode-button';
+      button.className = speed.master ? 'mode-button master' : 'mode-button';
       button.dataset.speed = String(speed.sec);
       button.textContent = speed.label;
       button.addEventListener('click', () => {
@@ -172,9 +171,7 @@
     const run = { options, questions: Q.buildQuestions(options.dan, options.mode), index: 0 };
     pendingRun = run;
     // 確かめている間も、押したことが分かるように先に画面を切り替える
-    ui.timerBar.style.setProperty('--limit', `${options.speedSec}s`);
     ui.playTitle.textContent = `${options.dan}のだん ・ ${modeLabel(options.mode)} ・ ${speedLabel(options.speedSec)}`;
-    resetTimer();
     setCard('', 'じゅんび してね', 'countdown');
     renderProgress(run);
     showScreen('play');
@@ -198,13 +195,11 @@
       const q = run.questions[run.index];
       setCard(`${q.a}×${q.b}`, run.options.showReading ? q.reading : '', '');
       renderProgress(run);
-      startTimer();
       await sleep(run.options.speedSec * 1000);
       if (currentRun !== run) return;
 
       run.index += 1;
       setCard('', '', '');
-      resetTimer();
       await sleep(C.FLASH_GAP_MS);
       if (currentRun !== run) return;
     }
@@ -214,7 +209,6 @@
   function quitRun() {
     currentRun = null;
     pendingRun = null;
-    resetTimer();
     refreshSelection();
     showScreen(isStopped() ? 'stopped' : 'title');
   }
@@ -261,19 +255,10 @@
     ui.progress.replaceChildren(...dots);
   }
 
-  function resetTimer() {
-    ui.timerBar.classList.remove('running');
-  }
-
-  function startTimer() {
-    resetTimer();
-    void ui.timerBar.offsetWidth; // アニメーションを最初から
-    ui.timerBar.classList.add('running');
-  }
-
   function speedLabel(sec) {
     const speed = C.SPEEDS.find((s) => s.sec === sec);
-    return speed ? speed.label : `${sec}びょう`;
+    if (!speed) return `${sec}びょう`;
+    return speed.shortLabel || speed.label;
   }
 
   function modeLabel(modeId) {

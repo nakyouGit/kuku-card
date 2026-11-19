@@ -26,8 +26,9 @@ test('範囲外の段・不明なモードは例外', () => {
   assert.throws(() => Q.buildQuestions(2, 'zigzag'));
 });
 
-test('はやさは1・2・3秒から選べ、はじめは1秒', () => {
-  assert.deepEqual(Array.from(C.SPEEDS, (s) => s.sec), [1, 2, 3]);
+test('はやさは1・2・3秒と、たつじん（0.7秒）から選べ、はじめは1秒', () => {
+  assert.deepEqual(Array.from(C.SPEEDS, (s) => s.sec), [1, 2, 3, 0.7]);
+  assert.ok(C.SPEEDS.find((s) => s.sec === 0.7).master);
   assert.equal(C.DEFAULT_SPEED_SEC, 1);
   assert.ok(C.SPEEDS.some((s) => s.sec === C.DEFAULT_SPEED_SEC));
 });
