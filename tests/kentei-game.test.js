@@ -5,10 +5,10 @@ import vm from 'node:vm';
 
 const context = { window: {} };
 vm.createContext(context);
-for (const file of ['kuku-readings.js', 'game-config.js', 'game-questions.js', 'game-records.js']) {
+for (const file of ['kuku-readings.js', 'game-config.js', 'game-questions.js']) {
   vm.runInContext(readFileSync(new URL(`../kentei/${file}`, import.meta.url), 'utf8'), context);
 }
-const { KukuGameQuestions: Q, KukuGameRecords: R } = context.window;
+const { KukuGameQuestions: Q, KukuGameConfig: C } = context.window;
 const bs = (list) => Array.from(list, (q) => q.b); // vm の配列をこちらの配列に直す
 
 test('じゅんばんどおり・ぎゃく・ランダムの並び', () => {
@@ -26,21 +26,6 @@ test('範囲外の段・不明なモードは例外', () => {
   assert.throws(() => Q.buildQuestions(2, 'zigzag'));
 });
 
-test('記録: いちばん良い数と、はじめての ごうかく', () => {
-  const store = new Map();
-  const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
-  const rec = R.createRecords(storage, 'k');
-  assert.equal(rec.record(2, 'order', 7, 9).firstPass, false);
-  assert.equal(rec.record(2, 'order', 9, 9).firstPass, true);
-  assert.equal(rec.record(2, 'order', 5, 9).firstPass, false);
-  const again = R.createRecords(storage, 'k').get(2, 'order');
-  assert.equal(again.best, 9);
-  assert.equal(again.passed, true);
-});
-
-test('記録: 保存できない環境でも止まらない', () => {
-  const broken = { getItem: () => { throw new Error('x'); }, setItem: () => { throw new Error('x'); } };
-  const rec = R.createRecords(broken, 'k');
-  assert.equal(rec.record(4, 'random', 9, 9).firstPass, true);
-  assert.equal(R.createRecords(null, 'k').get(4, 'random'), null);
+test('フラッシュは1秒', () => {
+  assert.equal(C.FLASH_SEC, 1.0);
 });

@@ -95,3 +95,5 @@ body {
 .result-mark.wrong, .result-mark.silent { color: var(--wrong); }
 .result-reading { font-size: 20px; color: #666; }
 .result-buttons { display: flex; flex-direction: column; gap: 12px; align-items: center; margin: 12px 0 24px; }
+.dot.done { background: var(--main); border-color: var(--main); }
+.card.countdown .card-main { color: #999; }

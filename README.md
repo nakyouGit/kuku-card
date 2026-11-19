@@ -43,31 +43,19 @@ npm test
 ```
 ES モジュールのため、`index.html` を直接開くのではなく、公開先かローカルのサーバー（`python3 -m http.server`）で開く。
 
-## 九九検定（作成中）
-- `kentei/index.html` は、児童が自分で練習する九九検定ゲーム。段（1〜9）と、じゅんばんどおり・ぎゃく・ランダムを選び、式が出たら2秒以内に声で読み始める（制限時間は `kentei/game-config.js` の LIMIT_SEC）。
-  - 1問ごとに ○（はやい）・△（おそい）・×（読み違い・聞こえない）を出し、△と×には正しい読み方を見せる。
-  - 9問すべて ○ で「ごうかく」。段とモードごとに★が付く（端末に保存）。できなかった式だけの練習、読み方を見ながらの練習（記録は残らない）もある。
-  - マイクが止まった時は「つづける」で同じ問題からやり直す。
-  - 先生が止めると、遊んでいる途中でもマイクを切って「おやすみ」の画面になる（20秒ごとと、スタートの時に確かめる）。
-- `kentei/mic-test.html` は、端末で音声認識が使えるかを確かめるマイクテスト。
-- iPad の Safari で開く（ホーム画面のアイコンからは開かない）。
-- 制限時間の判定は「音の検出（speechstart）」の時刻で測る。マイクは毎問開き直す（開き直せない端末では、つづけるの後は聞き続ける）。
-- 児童が自分で練習するためのもの。読み方の判定は ○ か ×。音声認識の結果を辞書（kuromoji）で読みがなに直し、よくある読み違い（なな・きゅう・よん・はちはち など）の方が近い時、答えの数がちがう時（数字でも読みでも）、正しい読みから遠い（別の式を言った）時だけ × にする。聞き取りが多少あいまいでも、明確な読み違いがなければ ○。線引きは `kentei/kuku-reading-judge.js` の SETTINGS。
-- 辞書（約18MB、`kentei/vendor/kuromoji/`、Apache License 2.0）は `kentei/sw.js` で端末に残し、2回目からは通信しない。
+## 九九けんてい（フラッシュ）
+- `kentei/index.html` は、児童が自分で練習する九九けんてい。段（1〜9）と、じゅんばんどおり・ぎゃく・ランダムを選ぶと、式が1秒ずつフラッシュで出る。子どもは声に出して読む（判定はしない）。終わると、9問の式・答え・読み方で こたえあわせ ができる。
+- 「よみかたも だす」にすると、式の下に読み方も出る。表示の秒数は `kentei/game-config.js` の FLASH_SEC。
+- 先生が止めると「おやすみ」の画面になる（20秒ごとと、スタートの時に確かめる。見張りは `kentei/game-stop.js`）。
+- 2026-11-19: はじめは音声入力で読み方を ○・× 判定する形で作ったが、iPad の Safari で音声入力が反応しなかったため、判定をやめてフラッシュにした。音声の判定の部品（`kuku-judge.js`・`kuku-reading-judge.js`・`speech-session.js`・`sw.js`・`vendor/kuromoji/`）は、マイクテスト（`kentei/mic-test.html`）でだけ使っている。
 
 | ファイル | 役割 |
 | --- | --- |
 | `kentei/kuku-readings.js` | 81問の読み方 |
-| `kentei/kuku-judge.js` | 答えの数の判定 |
-| `kentei/kuku-reading-judge.js` | 読み方の判定（○・×） |
-| `kentei/speech-session.js` | 音声認識の包み（自動で聞き直す） |
-| `kentei/sw.js` | 辞書を端末に残す |
-| `kentei/dictionary-loader.js` | 辞書の読み込み |
-| `kentei/game-config.js` | ゲームの設定値（制限時間・待ち時間など） |
+| `kentei/game-config.js` | 設定値（表示の秒数など） |
 | `kentei/game-questions.js` | 問題の並び |
-| `kentei/game-records.js` | ごうかくの記録 |
-| `kentei/game-trial.js` | 1問ぶんの出題・聞き取り・判定 |
-| `kentei/game-main.js` / `kentei/game.css` / `kentei/index.html` | ゲームの画面と進行 |
-| `kentei/mic-test.html` | マイクテスト |
+| `kentei/game-main.js` / `kentei/game.css` / `kentei/index.html` | 画面と進行 |
+| `kentei/game-stop.js` | 先生が止めたかの見張り |
+| `kentei/mic-test.html` ほか | 音声入力のマイクテスト（ゲームでは使わない） |
 
 試験の一部（読み方の判定）は `npm install` で kuromoji を入れてから `npm test`。
