@@ -94,3 +94,5 @@ body {
 .card.countdown .card-main { color: #999; }
 .mode-button.master { border-color: #e0a800; background: #fff6d6; }
 .mode-button.master.selected { border-color: #b38600; background: #ffe58f; }
+.mode-button.ultra { border-color: #d6336c; background: #ffe3ec; }
+.mode-button.ultra.selected { border-color: #a61e4d; background: #ffb3c8; }

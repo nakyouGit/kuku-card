@@ -140,7 +140,7 @@
     C.SPEEDS.forEach((speed) => {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = speed.master ? 'mode-button master' : 'mode-button';
+      button.className = ['mode-button', speed.master ? 'master' : '', speed.ultra ? 'ultra' : ''].filter(Boolean).join(' ');
       button.dataset.speed = String(speed.sec);
       button.textContent = speed.label;
       button.addEventListener('click', () => {
